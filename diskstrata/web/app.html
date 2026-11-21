@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>DiskStrata</title>
+<style>
+/* ===== Design tokens (shared with report.html) ===== */
+:root{
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace;
+  --fs-xs:11.5px;--fs-sm:12.5px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:26px;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --r1:6px;--r2:10px;--r3:14px;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --bg:#f5f6f8;--surface:#fff;--surface-2:#f0f2f5;--surface-3:#e7eaef;
+  --ink:#141922;--ink-2:#454d5c;--ink-3:#646c7c;
+  --line:#e1e4ea;--line-2:#cdd2da;
+  --accent:#2a5bd7;--accent-ink:#1d48b5;--accent-soft:#e7edfb;--on-accent:#fff;
+  --shadow-1:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06);
+  --shadow-2:0 20px 50px rgba(16,24,40,.22);
+  --focus:0 0 0 2px var(--surface),0 0 0 4px var(--accent);
+  --safe:#147a46;--safe-bg:#e4f3ea;--review:#8f5400;--review-bg:#fcefd9;
+  --danger:#b42318;--danger-bg:#fdebe9;
+  --meter-track:#e9ecf1;--hot:#c2410c;
+}
+:root[data-theme="light"]{color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0e1116;--surface:#161a21;--surface-2:#1c212a;--surface-3:#252b36;
+  --ink:#e8ebf0;--ink-2:#b7bfcc;--ink-3:#9099aa;
+  --line:#262c36;--line-2:#363d4a;
+  --accent:#7ea2ff;--accent-ink:#a3bdff;--accent-soft:#1c2742;--on-accent:#0e1116;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 20px 50px rgba(0,0,0,.6);
+  --safe:#57c892;--safe-bg:#143023;--review:#f1b553;--review-bg:#33270f;
+  --danger:#ff8d7e;--danger-bg:#3a1a17;
+  --meter-track:#262c36;--hot:#ff8d7e;
+}}
+
+/* ===== Base ===== */
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs-md)/1.5 var(--font);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;line-height:1.25;font-weight:650;letter-spacing:-.01em}
+p{margin:0}
+code{font-family:var(--mono);font-size:.92em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:var(--focus);border-radius:var(--r1)}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 var(--s5)}
+.dim{color:var(--ink-3)}
+.err{color:var(--danger);font-size:var(--fs-sm)}
+.err:empty{display:none}
+
+/* ===== Top bar ===== */
+.topbar{background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:var(--s3);height:52px}
+.brand{display:flex;align-items:center;gap:var(--s2);font-weight:650;font-size:var(--fs-lg);letter-spacing:-.01em;margin-right:auto}
+.brand svg{width:26px;height:26px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.chip .ic{width:13px;height:13px;vertical-align:-2px}
+.chip-ok{color:var(--safe);background:var(--safe-bg)}
+.chip-warn{color:var(--review);background:var(--review-bg)}
+
+/* ===== Buttons ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);border-radius:var(--r1);padding:6px 12px;font-size:var(--fs-sm);font-weight:550;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background-color .15s,border-color .15s,box-shadow .15s,transform .1s}
+.btn:hover:not(:disabled){background:var(--surface-2);border-color:var(--ink-3)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{border-color:transparent;background:none}
+.btn-ghost:hover:not(:disabled){border-color:var(--line)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn-primary:hover:not(:disabled){background:var(--accent-ink);border-color:var(--accent-ink)}
+.btn-lg{padding:10px 20px;font-size:var(--fs-md);border-radius:var(--r2)}
+
+/* ===== Layout ===== */
+.hero{padding-top:var(--s6);padding-bottom:var(--s4)}
+.hero h1{font-size:var(--fs-2xl)}
+.hero p{color:var(--ink-3);margin-top:var(--s1)}
+main.wrap{display:grid;gap:var(--s4);padding-bottom:var(--s6)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow-1);padding:var(--s4) var(--s5) var(--s5);animation:rise .35s var(--ease) both}
+.panel-head{display:flex;align-items:flex-start;gap:var(--s3);margin-bottom:var(--s4)}
+.panel-head>div{flex:1;min-width:0}
+.panel-head h2{font-size:var(--fs-lg);display:flex;align-items:center;gap:var(--s2)}
+.panel-head h2 .ic{color:var(--ink-3)}
+.panel-head p{color:var(--ink-3);font-size:var(--fs-sm);margin-top:2px}
+.step{font-size:var(--fs-xs);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:2px}
+.actions{display:flex;gap:var(--s3);align-items:center;flex-wrap:wrap;margin-top:var(--s5)}
+
+/* ===== Callouts ===== */
+.callout{display:flex;gap:var(--s3);align-items:flex-start;border:1px solid var(--line);border-radius:var(--r3);padding:var(--s4) var(--s5);animation:rise .35s var(--ease) both}
+.callout>.ic{width:20px;height:20px;margin-top:2px}
+.callout .body{flex:1;min-width:0;display:grid;gap:var(--s1)}
+.callout h2{font-size:var(--fs-md)}
+.callout p{color:var(--ink-2);font-size:var(--fs-sm)}
+.callout .btn{align-self:center}
+.callout-warn{background:var(--review-bg);border-color:color-mix(in srgb,var(--review) 30%,transparent)}
+.callout-warn>.ic{color:var(--review)}
+.callout-error{background:var(--danger-bg);border-color:color-mix(in srgb,var(--danger) 30%,transparent)}
+.callout-error>.ic{color:var(--danger)}
+
+/* ===== Volume picker ===== */
+.volumes{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:var(--s3)}
+.vol{position:relative;display:flex;gap:var(--s3);align-items:center;border:1px solid var(--line-2);border-radius:var(--r2);padding:var(--s3) 44px var(--s3) var(--s3);cursor:pointer;background:var(--surface);transition:border-color .15s,background-color .15s,box-shadow .15s}
+.vol:hover{border-color:var(--ink-3)}
+.vol:has(input:checked){border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.vol:has(input:focus-visible){box-shadow:var(--focus)}
+.vol input{position:absolute;right:var(--s3);top:var(--s3);width:18px;height:18px;margin:0;accent-color:var(--accent);cursor:pointer}
+.vol input:focus-visible{box-shadow:none}
+.ring{width:48px;height:48px;flex:none}
+.ring circle{fill:none;stroke-width:5}
+.ring .track{stroke:var(--meter-track)}
+.ring .fill{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .6s var(--ease);animation:ring .9s var(--ease) both}
+.ring.hot .fill{stroke:var(--hot)}
+.ring text{font-size:11px;font-weight:650;fill:var(--ink);font-variant-numeric:tabular-nums}
+.vol-info{min-width:0}
+.vol-title{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap}
+.vol-title b{font-size:var(--fs-lg);font-weight:650;letter-spacing:-.01em}
+.vol-title span{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.vol-meta{color:var(--ink-3);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.tag{font-size:var(--fs-xs);font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:0 7px}
+.vol:has(input:checked) .tag{background:var(--surface)}
+.empty{display:flex;align-items:center;gap:var(--s3);padding:var(--s4);border:1px dashed var(--line-2);border-radius:var(--r2);color:var(--ink-3);font-size:var(--fs-sm)}
+.empty .ic{width:28px;height:28px;color:var(--line-2)}
+.empty b{color:var(--ink-2);display:block}
+
+/* ===== Progress ===== */
+.progress{display:flex;gap:var(--s5);align-items:center}
+.dial{width:132px;height:132px;flex:none}
+.dial circle{fill:none}
+.dial .track{stroke:var(--meter-track);stroke-width:10}
+.dial .arc{stroke:var(--accent);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .9s var(--ease)}
+.dial .pct{font-size:24px;font-weight:650;fill:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dial .lbl{font-size:10px;fill:var(--ink-3)}
+.prog-main{flex:1;min-width:0;display:grid;gap:var(--s3)}
+.bar{height:8px;background:var(--meter-track);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .9s var(--ease)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2)}
+.stat{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s2) var(--s3)}
+.stat b{display:block;font-size:var(--fs-lg);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat span{color:var(--ink-3);font-size:var(--fs-xs)}
+.now{display:flex;align-items:center;gap:var(--s2);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r1);padding:6px 10px;font-size:var(--fs-sm)}
+.now .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:pulse 1.2s ease-in-out infinite}
+.now .lbl{color:var(--ink-3);flex:none}
+.now .path{font-family:var(--mono);font-size:12px;flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;direction:rtl;text-align:left}
+.now .path bdi{direction:ltr;unicode-bidi:isolate}
+
+/* ===== Finished ===== */
+.done-head{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4)}
+.check{width:44px;height:44px;flex:none}
+.check circle,.check path{fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.check .c-ring{stroke:var(--safe);stroke-dasharray:145;animation:draw145 .6s ease-out both}
+.check .c-tick{stroke:var(--safe);stroke-dasharray:40;animation:draw40 .4s .45s ease-out both}
+.check .c-dash{stroke:var(--review);display:none}
+.check.cancelled .c-ring{stroke:var(--review)}
+.check.cancelled .c-tick{display:none}
+.check.cancelled .c-dash{display:inline}
+.notes{list-style:none;margin:0;padding:0;display:grid;gap:var(--s2)}
+.notes li{display:flex;align-items:center;gap:var(--s3);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:var(--fs-sm)}
+.notes li b{min-width:3.5em}
+.notes .ok{color:var(--safe)}.notes .warn{color:var(--review)}.notes .bad{color:var(--danger)}
+
+/* ===== History ===== */
+.history{display:flex;gap:var(--s3);align-items:flex-end;flex-wrap:wrap}
+.field{display:grid;gap:6px;flex:1;min-width:240px}
+.field label{font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+.select{position:relative}
+.select select{appearance:none;-webkit-appearance:none;width:100%;padding:8px 36px 8px 12px;border:1px solid var(--line-2);border-radius:var(--r1);background:var(--surface);font-size:var(--fs-md);font-variant-numeric:tabular-nums;cursor:pointer}
+.select select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.select .ic{position:absolute;right:10px;top:50%;transform:translateY(-50%) rotate(90deg);pointer-events:none;color:var(--ink-3)}
+
+/* ===== Dialogs ===== */
+dialog{border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);color:var(--ink);max-width:460px;width:calc(100% - 32px);padding:var(--s5);box-shadow:var(--shadow-2)}
+dialog[open]{animation:pop .2s var(--ease)}
+dialog::backdrop{background:rgba(10,14,22,.5)}
+dialog h2{font-size:var(--fs-lg);display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s2)}
+dialog h2 .ic{width:20px;height:20px;color:var(--accent)}
+dialog p{color:var(--ink-2);font-size:var(--fs-sm)}
+dialog .row{display:flex;justify-content:flex-end;gap:var(--s2);margin-top:var(--s5);flex-wrap:wrap}
+
+footer{color:var(--ink-3);font-size:var(--fs-sm);border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center;padding-top:var(--s4);padding-bottom:var(--s5)}
+footer .ro{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.stopped{text-align:center;padding:var(--s6) var(--s5)}
+.stopped p{color:var(--ink-3);margin-top:var(--s2)}
+
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+@keyframes ring{from{stroke-dashoffset:100}}
+@keyframes pulse{50%{opacity:.35;transform:scale(.75)}}
+@keyframes draw145{from{stroke-dashoffset:145}}
+@keyframes draw40{from{stroke-dashoffset:40}}
+@keyframes pop{from{opacity:0;transform:scale(.96)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+@media (max-width:640px){
+  .wrap{padding:0 var(--s4)}
+  .hero{padding-top:var(--s5)}
+  .hero h1{font-size:var(--fs-xl)}
+  .panel,.callout{padding:var(--s4)}
+  .callout{flex-wrap:wrap}
+  .callout .btn{width:100%}
+  .volumes{grid-template-columns:minmax(0,1fr)}
+  .progress{flex-direction:column;align-items:stretch}
+  .dial{align-self:center;width:116px;height:116px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .actions .btn-lg,.history .btn{width:100%}
+  dialog .row{flex-direction:column-reverse;align-items:stretch}
+  footer .ro{margin-left:0}
+}
+</style>
+</head>
+<body>
+<script>window.DS_TOKEN = "";</script>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-brand" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--accent)" stroke="none"/><g stroke="none" fill="var(--on-accent)"><rect x="7" y="8" width="18" height="4" rx="2" opacity=".55"/><rect x="7" y="14" width="13" height="4" rx="2" opacity=".8"/><rect x="7" y="20" width="18" height="4" rx="2"/></g></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7 5h10l2 8"/><path d="M16.5 16.5h.01"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-report" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 17v-3M12 17v-6M15 17v-4"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7a8 8 0 1 0 11.4 0"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand"><svg aria-hidden="true"><use href="#i-brand"/></svg><span>DiskStrata</span></div>
+    <span id="mode" class="chip" hidden></span>
+    <button id="quit" class="btn btn-ghost" type="button"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>Quit</button>
+  </div>
+</header>
+
+<div class="wrap hero">
+  <h1>See what fills your storage</h1>
+  <p>Scan one or more volumes and get a single report. Read-only: DiskStrata never deletes, moves or changes anything.</p>
+</div>
+
+<main class="wrap" id="main">
+  <div class="callout callout-error" id="offline" role="alert" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>
+    <div class="body"><h2>Cannot reach DiskStrata</h2><p>The app may have stopped. Start it again, then reload this page.</p></div>
+  </div>
+
+  <section class="callout callout-warn" id="elevateBox" aria-labelledby="elevateTitle" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>
+    <div class="body">
+      <h2 id="elevateTitle">Want the complete picture?</h2>
+      <p id="elevateTip"></p>
+      <p class="err" id="elevateErr" role="alert"></p>
+    </div>
+    <button class="btn btn-primary" id="elevate" type="button"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span></span></button>
+  </section>
+
+  <section class="panel" id="done" aria-labelledby="doneTitle" hidden>
+    <div class="done-head">
+      <svg class="check" id="doneIcon" viewBox="0 0 52 52" aria-hidden="true">
+        <circle class="c-ring" cx="26" cy="26" r="23" transform="rotate(-90 26 26)"/>
+        <path class="c-tick" d="M15 27l7.5 7.5L38 19"/><path class="c-dash" d="M17 26h18"/>
+      </svg>
+      <div><div class="step" id="doneStep">Done</div><h2 id="doneTitle">Scan finished</h2></div>
+    </div>
+    <ul class="notes" id="doneNotes"></ul>
+    <div class="actions" id="doneActions"></div>
+  </section>
+
+  <section class="panel" id="pick" aria-labelledby="pickTitle">
+    <div class="panel-head">
+      <div><div class="step">Step 1 of 2</div><h2 id="pickTitle">Choose the volumes to scan</h2><p>Select one or more. Several volumes are scanned one after another into one report.</p></div>
+      <button class="btn" id="refresh" type="button" title="Look for volumes again"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Refresh</button>
+    </div>
+    <div class="volumes" id="volumes" role="group" aria-labelledby="pickTitle"><p class="dim">Looking for volumes…</p></div>
+    <div class="actions">
+      <button class="btn btn-primary btn-lg" id="start" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><span>Select a volume</span></button>
+      <span class="err" id="startErr" role="alert"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="progress" aria-labelledby="progTitle" hidden>
+    <div class="panel-head">
+      <div><div class="step">Step 2 of 2</div><h2 id="progTitle">Scanning</h2><p id="progNote">Progress is estimated from the space used on the volume.</p></div>
+      <button class="btn" id="cancel" type="button"><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg><span>Cancel</span></button>
+    </div>
+    <div class="progress">
+      <svg class="dial" viewBox="0 0 132 132" role="img" aria-labelledby="pctText">
+        <circle class="track" cx="66" cy="66" r="56"/>
+        <circle class="arc" id="arc" cx="66" cy="66" r="56" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 66 66)"/>
+        <text class="pct" id="pctText" x="66" y="70" text-anchor="middle">0%</text>
+        <text class="lbl" x="66" y="88" text-anchor="middle">estimated</text>
+      </svg>
+      <div class="prog-main">
+        <div class="bar" role="progressbar" id="bar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Scan progress"><i></i></div>
+        <div class="stats">
+          <div class="stat"><b id="sDirs">0</b><span>folders</span></div>
+          <div class="stat"><b id="sFiles">0</b><span>files</span></div>
+          <div class="stat"><b id="sBytes">0 B</b><span>data found</span></div>
+          <div class="stat"><b id="sTime">0 s</b><span>elapsed</span></div>
+        </div>
+        <div class="now"><span class="dot" aria-hidden="true"></span><span class="lbl">Now reading</span><span class="path" id="current"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="history" aria-labelledby="histTitle">
+    <div class="panel-head">
+      <div><h2 id="histTitle"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Previous reports</h2><p>Open a saved report again without rescanning.</p></div>
+    </div>
+    <div id="histBody"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span id="version">DiskStrata</span>
+    <span class="ro"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Read-only. DiskStrata never changes your files.</span>
+  </div>
+</footer>
+
+<dialog id="elevateDlg" aria-labelledby="elevateDlgTitle">
+  <h2 id="elevateDlgTitle"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span></span></h2>
+  <p id="elevateDlgText"></p>
+  <div class="row">
+    <button class="btn" type="button" value="cancel">Cancel</button>
+    <button class="btn" type="button" value="skip">Scan anyway</button>
+    <button class="btn btn-primary" type="button" value="elevate"></button>
+  </div>
+</dialog>
+
+<dialog id="quitDlg" aria-labelledby="quitDlgTitle">
+  <h2 id="quitDlgTitle"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>Quit DiskStrata?</h2>
+  <p>This stops the app and cancels a running scan. Saved reports are kept.</p>
+  <div class="row">
+    <button class="btn" type="button" value="cancel">Keep running</button>
+    <button class="btn btn-primary" type="button" value="quit">Quit</button>
+  </div>
+</dialog>
+
+<script>
+'use strict';
+(() => {
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const icon = name => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+function fmtBytes(b) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let v = Math.max(0, b || 0), i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return (i === 0 || v >= 100 ? v.toFixed(0) : v.toFixed(1)) + ' ' + units[i];
+}
+function fmtDuration(s) {
+  s = Math.round(s || 0);
+  if (s < 60) return s + ' s';
+  if (s < 3600) return Math.floor(s / 60) + ' min ' + (s % 60) + ' s';
+  return Math.floor(s / 3600) + ' h ' + Math.floor(s % 3600 / 60) + ' min';
+}
+const fmtInt = n => Number(n || 0).toLocaleString();
+const plural = (n, one, many = one + 's') => `${fmtInt(n)} ${n === 1 ? one : many}`;
+
+const store = {
+  get(area, k) { try { return window[area].getItem('diskstrata.' + k); } catch (e) { return null; } },
+  set(area, k, v) { try { window[area].setItem('diskstrata.' + k, v); } catch (e) { /* storage unavailable: not remembered */ } },
+};
+const ui = { state: null, selected: new Set(), lastJob: 'idle', pollTimer: 0, doneKey: '' };
+
+/* "C:" on Windows, the mount path ("/", "/Volumes/Backup") elsewhere. */
+const volLabel = v => (ui.state && ui.state.os === 'windows' ? v.id : v.root) || v.id;
+const labelFor = id => { const v = (ui.state?.volumes || []).find(x => x.id === id); return v ? volLabel(v) : id; };
+
+async function post(path, body) {
+  try {
+    const r = await fetch(path, { method: 'POST', headers: { 'X-DS-Token': window.DS_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    return await r.json();
+  } catch (e) { return { ok: false, error: 'DiskStrata did not answer.' }; }
+}
+const getJson = async path => (await fetch(path, { cache: 'no-store' })).json();
+
+/* ---------- mode & elevation ---------- */
+function renderMode() {
+  const s = ui.state, mode = $('mode');
+  mode.hidden = false;
+  mode.className = 'chip ' + (s.elevated ? 'chip-ok' : 'chip-warn');
+  mode.innerHTML = s.elevated ? `${icon('shield')}${esc(s.elevated_label)}` : `${icon('user')}Standard rights`;
+  mode.title = s.elevated ? `Running as ${s.elevated_label}: protected folders are included` : `Not running as ${s.elevated_label}: some protected folders cannot be read`;
+  $('elevateTip').textContent = s.elevate_tip || '';
+  $('elevate').querySelector('span').textContent = `Restart as ${s.elevated_label}`;
+  $('elevateDlgTitle').querySelector('span').textContent = `Scan as ${s.elevated_label}?`;
+  $('elevateDlgText').textContent = `DiskStrata is not running as ${s.elevated_label}, so some protected folders cannot be read. The scan still works, but its total will be lower than the used space on the volume.`;
+  $('elevateDlg').querySelector('[value="elevate"]').textContent = `Restart as ${s.elevated_label}`;
+}
+async function elevate() {
+  const btn = $('elevate'), label = btn.querySelector('span'), original = label.textContent, err = $('elevateErr');
+  err.textContent = '';
+  btn.disabled = true;
+  label.textContent = 'Waiting for permission…';
+  const r = await post('/api/elevate');
+  if (!r.ok) { err.textContent = r.error || 'Could not restart.'; btn.disabled = false; label.textContent = original; return; }
+  label.textContent = 'Restarting…';
+  stopPolling();
+  const deadline = Date.now() + 60000;
+  // The server restarts on the same port; until it is back, requests simply fail.
+  const wait = setInterval(async () => {
+    try { if ((await getJson('/api/status')).elevated) { clearInterval(wait); location.reload(); return; } } catch (e) { /* not back yet */ }
+    if (Date.now() > deadline) {
+      clearInterval(wait);
+      err.textContent = `The ${ui.state.elevated_label} copy did not start within a minute. Start DiskStrata as ${ui.state.elevated_label} yourself, then reload this page.`;
+      btn.disabled = false; label.textContent = original;
+      startPolling();
+    }
+  }, 1000);
+}
+
+/* ---------- volume picker ---------- */
+function ringSvg(p) {
+  return `<svg class="ring${p > 90 ? ' hot' : ''}" viewBox="0 0 48 48" aria-hidden="true"><circle class="track" cx="24" cy="24" r="20"/>` +
+    `<circle class="fill" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${(100 - Math.min(100, p)).toFixed(1)}" transform="rotate(-90 24 24)"/>` +
+    `<text x="24" y="28" text-anchor="middle">${Math.round(p)}%</text></svg>`;
+}
+function renderVolumes(firstLoad) {
+  const vols = ui.state.volumes || [];
+  const known = new Set(vols.map(v => v.id));
+  [...ui.selected].forEach(id => known.has(id) || ui.selected.delete(id));
+  if (firstLoad && !ui.selected.size) {
+    const sys = vols.find(v => v.is_system) || vols[0];
+    if (sys) ui.selected.add(sys.id);
+  }
+  $('volumes').innerHTML = vols.map(v => {
+    const p = v.total ? v.used / v.total * 100 : 0, label = volLabel(v);
+    const details = [v.kind, v.fs].filter(Boolean).map(esc).join(' · ');
+    return `<label class="vol"><input type="checkbox" value="${esc(v.id)}"${ui.selected.has(v.id) ? ' checked' : ''} aria-label="${esc(`Scan ${label} ${v.name || ''}`)}">${ringSvg(p)}` +
+      `<span class="vol-info"><span class="vol-title"><b>${esc(label)}</b><span>${esc(v.name || '')}</span>${v.is_system ? '<span class="tag">System</span>' : ''}</span>` +
+      `<span class="vol-meta">${fmtBytes(v.free)} free of ${fmtBytes(v.total)}${details ? `<br>${details}` : ''}</span></span></label>`;
+  }).join('') || `<div class="empty">${icon('drive')}<div><b>No volumes found.</b>Connect a drive, then choose Refresh.</div></div>`;
+  updateStart();
+}
+function updateStart() {
+  const n = ui.selected.size, btn = $('start');
+  btn.disabled = !n;
+  btn.querySelector('span').textContent = n > 1 ? `Start scan (${n} volumes)` : n ? `Start scan of ${labelFor([...ui.selected][0])}` : 'Select a volume';
+}
+async function startScan() {
+  $('startErr').textContent = '';
+  $('start').disabled = true;
+  const r = await post('/api/scan', { volumes: [...ui.selected] });
+  if (!r.ok) { $('startErr').textContent = r.error || 'Could not start the scan.'; updateStart(); return; }
+  renderJob(await getJson('/api/status'));
+}
+function requestScan() {
+  if (ui.state.elevated || store.get('sessionStorage', 'skip-elevate') === '1') return startScan();
+  $('elevateDlg').showModal();
+}
+
+/* ---------- job ---------- */
+function setProgress(pct) {
+  $('arc').setAttribute('stroke-dashoffset', (100 - pct).toFixed(1));
+  $('pctText').textContent = Math.round(pct) + '%';
+  $('bar').firstElementChild.style.width = pct + '%';
+  $('bar').setAttribute('aria-valuenow', String(Math.round(pct)));
+}
+function renderRunning(j) {
+  const many = j.volumes.length > 1;
+  $('progTitle').textContent = `Scanning ${labelFor(j.volume)}` + (many ? ` (volume ${j.index + 1} of ${j.volumes.length})` : '');
+  setProgress(j.pct || 0);
+  $('sDirs').textContent = fmtInt(j.dirs);
+  $('sFiles').textContent = fmtInt(j.files);
+  $('sBytes').textContent = fmtBytes(j.bytes);
+  $('sTime').textContent = fmtDuration(j.elapsed);
+  const cur = $('current');
+  if (cur.textContent !== (j.current || '')) {
+    cur.innerHTML = `<bdi>${esc(j.current || '')}</bdi>`;
+    cur.title = j.current || '';
+  }
+}
+function doneNotes(j) {
+  const errors = new Map((j.errors || []).map(e => [e.volume, e.error]));
+  const denied = j.denied || {};
+  return j.volumes.map((id, i) => {
+    let text, cls;
+    if (errors.has(id)) { text = errors.get(id); cls = 'bad'; }
+    else if (j.state === 'cancelled' && i >= j.index) { text = i === j.index ? 'Stopped before this volume finished' : 'Not scanned'; cls = 'warn'; }
+    else if (denied[id]) {
+      text = `${plural(denied[id], 'folder')} could not be read` + (ui.state.elevated ? '' : `. Scan as ${ui.state.elevated_label} to include them.`);
+      cls = 'warn';
+    } else { text = 'All folders were read'; cls = 'ok'; }
+    return `<li><b>${esc(labelFor(id))}</b><span class="${cls}">${esc(text)}</span></li>`;
+  }).join('');
+}
+function renderFinished(j) {
+  const cancelled = j.state === 'cancelled';
+  $('doneIcon').classList.toggle('cancelled', cancelled);
+  $('doneStep').textContent = cancelled ? 'Stopped' : 'Done';
+  $('doneTitle').textContent = cancelled ? 'Scan cancelled' : `Scan finished in ${fmtDuration(j.elapsed)}`;
+  $('doneNotes').innerHTML = doneNotes(j);
+  $('doneActions').innerHTML = j.scan
+    ? `<a class="btn btn-primary btn-lg" href="/scan/${encodeURIComponent(j.scan)}">${icon('report')}Open report</a>`
+    : '<p class="dim">No report was saved because no volume finished before the scan stopped.</p>';
+}
+function renderJob(j) {
+  const running = j.state === 'running', finished = (j.state === 'done' || j.state === 'cancelled') && Array.isArray(j.volumes);
+  $('pick').hidden = running;
+  $('progress').hidden = !running;
+  $('elevateBox').hidden = !ui.state || ui.state.elevated || running;
+  if (running) renderRunning(j);
+  else { $('cancel').disabled = false; $('cancel').querySelector('span').textContent = 'Cancel'; }
+  // Re-render the finished panel only when it changes, so its entrance motion plays once.
+  const key = finished ? `${j.state}:${j.scan}` : '';
+  if (key !== ui.doneKey) { ui.doneKey = key; $('done').hidden = !finished; if (finished) renderFinished(j); }
+  if (ui.lastJob === 'running' && !running) loadState();      // new report in history
+  ui.lastJob = j.state;
+}
+function startPolling() {
+  stopPolling();
+  ui.pollTimer = setInterval(async () => {
+    try { const j = await getJson('/api/status'); $('offline').hidden = true; renderJob(j); } catch (e) { $('offline').hidden = false; }
+  }, 1000);
+}
+function stopPolling() { clearInterval(ui.pollTimer); }
+
+/* ---------- history ---------- */
+function renderHistory(list) {
+  const body = $('histBody');
+  if (!list.length) {
+    body.innerHTML = `<div class="empty">${icon('report')}<div><b>No reports yet.</b>Your first scan will appear here.</div></div>`;
+    return;
+  }
+  const isWin = ui.state.os === 'windows';
+  const optionText = h => [h.generated, (h.volumes || []).map(v => isWin ? v.id : v.root).join(', '), fmtBytes(h.size)].join(' · ');
+  body.innerHTML = `<div class="history"><div class="field"><label for="histSelect">Saved report</label><div class="select"><select id="histSelect">` +
+    list.map(h => `<option value="${esc(h.id)}">${esc(optionText(h))}</option>`).join('') +
+    `</select>${icon('chev')}</div></div><button class="btn btn-primary" id="histOpen" type="button">${icon('report')}Open report</button></div>`;
+  $('histOpen').addEventListener('click', () => { location.href = '/scan/' + encodeURIComponent($('histSelect').value); });
+}
+
+/* ---------- state ---------- */
+async function loadState(firstLoad) {
+  try { ui.state = await getJson('/api/state'); } catch (e) { $('offline').hidden = false; return; }
+  $('offline').hidden = true;
+  $('version').textContent = 'DiskStrata ' + (ui.state.version || '');
+  renderMode();
+  renderVolumes(firstLoad);
+  renderHistory(ui.state.history || []);
+  renderJob(ui.state.job || { state: 'idle' });
+}
+
+/* ---------- events ---------- */
+$('volumes').addEventListener('change', e => {
+  const box = e.target;
+  if (box.type !== 'checkbox') return;
+  box.checked ? ui.selected.add(box.value) : ui.selected.delete(box.value);
+  store.set('localStorage', 'selection', JSON.stringify([...ui.selected]));
+  updateStart();
+});
+$('refresh').addEventListener('click', () => loadState(false));
+$('start').addEventListener('click', requestScan);
+$('elevate').addEventListener('click', elevate);
+$('cancel').addEventListener('click', () => {
+  $('cancel').disabled = true;
+  $('cancel').querySelector('span').textContent = 'Cancelling…';
+  post('/api/cancel');
+});
+$('elevateDlg').addEventListener('click', e => {
+  const choice = e.target.closest('button')?.value;
+  if (!choice) return;
+  $('elevateDlg').close();
+  if (choice === 'skip') { store.set('sessionStorage', 'skip-elevate', '1'); startScan(); }
+  if (choice === 'elevate') elevate();
+});
+$('quit').addEventListener('click', () => $('quitDlg').showModal());
+$('quitDlg').addEventListener('click', async e => {
+  const choice = e.target.closest('button')?.value;
+  if (!choice) return;
+  $('quitDlg').close();
+  if (choice !== 'quit') return;
+  stopPolling();
+  await post('/api/quit');
+  $('main').innerHTML = '<section class="panel stopped"><h2>DiskStrata has stopped</h2><p>You can close this tab. Your reports are saved.</p></section>';
+  $('quit').hidden = true;
+});
+
+try { JSON.parse(store.get('localStorage', 'selection') || '[]').forEach(id => ui.selected.add(String(id))); } catch (e) { /* ignore a damaged value */ }
+loadState(true).then(startPolling);
+})();
+</script>
+</body>
+</html>

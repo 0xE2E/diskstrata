@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diskstrata"
+dynamic = ["version"]
+description = "See exactly where your disk space went. A local, read-only disk-space analyzer with a web UI for Windows, Linux and macOS."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "0xE2E" }]
+keywords = ["disk", "storage", "disk-usage", "analyzer", "cleanup", "windows", "linux", "macos"]
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Filesystems",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/0xE2E/diskstrata"
+Source = "https://github.com/0xE2E/diskstrata"
+Issues = "https://github.com/0xE2E/diskstrata/issues"
+
+[project.scripts]
+diskstrata = "diskstrata.cli:main"
+
+[tool.setuptools]
+packages = ["diskstrata", "diskstrata.catalog", "diskstrata.platforms"]
+
+[tool.setuptools.dynamic]
+version = { attr = "diskstrata.__version__" }
+
+[tool.setuptools.package-data]
+diskstrata = ["web/*.html"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PIE", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+"diskstrata/catalog/*.py" = ["E501"]   # data tables

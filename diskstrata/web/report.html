@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Storage report · DiskStrata</title>
+<style>
+/* ===== Design tokens ===== */
+:root{
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace;
+  --fs-xs:11.5px;--fs-sm:12.5px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:26px;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --r1:6px;--r2:10px;--r3:14px;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --bg:#f5f6f8;--surface:#fff;--surface-2:#f0f2f5;--surface-3:#e7eaef;
+  --ink:#141922;--ink-2:#454d5c;--ink-3:#646c7c;
+  --line:#e1e4ea;--line-2:#cdd2da;
+  --accent:#2a5bd7;--accent-ink:#1d48b5;--accent-soft:#e7edfb;--on-accent:#fff;
+  --shadow-1:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06);
+  --shadow-2:0 8px 24px rgba(16,24,40,.14);
+  --focus:0 0 0 2px var(--surface),0 0 0 4px var(--accent);
+  --safe:#147a46;--safe-bg:#e4f3ea;--review:#8f5400;--review-bg:#fcefd9;
+  --keep:#4a5263;--keep-bg:#eceef2;--unknown:#6440bd;--unknown-bg:#efe9fb;
+  --danger:#b42318;--danger-bg:#fdebe9;--up:#b42318;--down:#147a46;
+  --seg-found:var(--accent);--seg-gap:#c98500;--seg-free:#dfe3ea;--seg-reserved:#a9b0bc;
+  --series-1:#2a78d6;--series-2:#eb6834;--series-3:#1baf7a;--series-4:#eda100;
+  --series-5:#e87ba4;--series-6:#008300;--series-7:#6250d6;--series-other:#b9bfc9;
+  --meter-track:#e9ecf1;
+}
+:root[data-theme="light"]{color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0e1116;--surface:#161a21;--surface-2:#1c212a;--surface-3:#252b36;
+  --ink:#e8ebf0;--ink-2:#b7bfcc;--ink-3:#9099aa;
+  --line:#262c36;--line-2:#363d4a;
+  --accent:#7ea2ff;--accent-ink:#a3bdff;--accent-soft:#1c2742;--on-accent:#0e1116;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);
+  --safe:#57c892;--safe-bg:#143023;--review:#f1b553;--review-bg:#33270f;
+  --keep:#b0b8c6;--keep-bg:#262b35;--unknown:#bca4ff;--unknown-bg:#2a2244;
+  --danger:#ff8d7e;--danger-bg:#3a1a17;--up:#ff8d7e;--down:#57c892;
+  --seg-gap:#d9a032;--seg-free:#2b313c;--seg-reserved:#566070;
+  --series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;--series-4:#c98500;
+  --series-5:#d55181;--series-6:#0ca30c;--series-7:#9085e9;--series-other:#4d5563;
+  --meter-track:#262c36;
+}}
+
+/* ===== Base ===== */
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs-md)/1.5 var(--font);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;line-height:1.25;font-weight:650;letter-spacing:-.01em}
+a{color:var(--accent-ink)}
+code{font-family:var(--mono);font-size:.92em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:var(--focus);border-radius:var(--r1)}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:absolute;left:var(--s4);top:-48px;z-index:20;background:var(--accent);color:var(--on-accent);padding:var(--s2) var(--s3);border-radius:var(--r1);text-decoration:none}
+.skip:focus{top:var(--s2)}
+.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+.wrap{max-width:1360px;margin:0 auto;padding:0 var(--s5)}
+.dim{color:var(--ink-3)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ===== Top bar ===== */
+.topbar{background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:var(--s3);height:52px}
+.brand{display:flex;align-items:center;gap:var(--s2);font-weight:650;font-size:var(--fs-lg);letter-spacing:-.01em;margin-right:auto}
+.brand svg{width:26px;height:26px}
+.top-actions{display:flex;gap:var(--s2);align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);border-radius:var(--r1);padding:5px 10px;font-size:var(--fs-sm);font-weight:550;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background-color .15s,border-color .15s}
+.btn:hover{background:var(--surface-2);border-color:var(--ink-3)}
+.btn-ghost{border-color:transparent;background:none}
+.btn-ghost:hover{background:var(--surface-2);border-color:var(--line)}
+.btn-sm{padding:2px 8px;font-size:var(--fs-xs);gap:4px}
+.btn-sm .ic{width:13px;height:13px;vertical-align:-2px}
+
+/* ===== Report header ===== */
+.hero{padding:var(--s5) 0 var(--s4);display:flex;flex-wrap:wrap;gap:var(--s4);align-items:flex-end;justify-content:space-between}
+.hero h1{font-size:var(--fs-2xl)}
+.hero .vol-name{color:var(--ink-3);font-weight:500}
+.meta{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin-top:var(--s2);color:var(--ink-3);font-size:var(--fs-sm);align-items:center}
+.meta>span{display:inline-flex;align-items:center;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);font-weight:600;border-radius:999px;padding:2px 9px;border:1px solid transparent;white-space:nowrap}
+.chip .ic{width:13px;height:13px;vertical-align:-2px}
+.chip-ok{color:var(--safe);background:var(--safe-bg)}
+.chip-warn{color:var(--review);background:var(--review-bg)}
+.chip-neutral{color:var(--ink-2);background:var(--surface-2);border-color:var(--line)}
+.volumes{display:inline-flex;flex-wrap:wrap;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r2);padding:3px}
+.volumes button{display:flex;align-items:center;gap:var(--s2);border:0;background:none;border-radius:7px;padding:6px 12px;cursor:pointer;color:var(--ink-2);font-size:var(--fs-sm);font-weight:550}
+.volumes button small{font-weight:500;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.volumes button:hover{color:var(--ink)}
+.volumes button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)}
+
+/* ===== Tabs ===== */
+.tabbar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(8px);-webkit-backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+[role="tablist"]{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * var(--s2))}
+[role="tablist"]::-webkit-scrollbar{display:none}
+[role="tab"]{display:flex;align-items:center;gap:7px;border:0;background:none;color:var(--ink-3);padding:12px var(--s2) 11px;margin:0 var(--s1);font-size:var(--fs-sm);font-weight:550;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;border-radius:0}
+[role="tab"]:hover{color:var(--ink)}
+[role="tab"][aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+[role="tab"][aria-selected="true"] .ic{color:var(--accent)}
+[role="tab"]:focus-visible{border-radius:var(--r1)}
+
+/* ===== Layout ===== */
+main.wrap{padding-top:var(--s5);padding-bottom:var(--s6)}
+[role="tabpanel"]{animation:fade .22s var(--ease)}
+[role="tabpanel"]:focus-visible{box-shadow:none}
+.section-title{display:none}
+.stack{display:grid;gap:var(--s4)}
+.grid-2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:var(--s4)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow-1);min-width:0}
+.panel-head{display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s4) var(--s4) 0}
+.panel-head h3{font-size:var(--fs-lg);display:flex;align-items:center;gap:var(--s2)}
+.panel-head h3 .ic{color:var(--ink-3)}
+.panel-head p{margin:2px 0 0;color:var(--ink-3);font-size:var(--fs-sm)}
+.panel-head .aside{margin-left:auto;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.panel-body{padding:var(--s3) var(--s4) var(--s4)}
+.panel-body.flush{padding:var(--s3) 0 0}
+.grid-2>.panel{display:flex;flex-direction:column}
+.grid-2>.panel>.panel-body{flex:1;display:flex;flex-direction:column;justify-content:center}
+
+/* ===== Callouts ===== */
+.callout{display:flex;gap:var(--s3);align-items:flex-start;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:var(--s3) var(--s4);font-size:var(--fs-sm);color:var(--ink-2)}
+.callout>.ic{margin-top:2px;width:18px;height:18px}
+.callout b{color:var(--ink)}
+.callout p{margin:0}
+.callout p+p{margin-top:var(--s1)}
+.callout-info>.ic{color:var(--accent)}
+.callout-warn{background:var(--review-bg);border-color:color-mix(in srgb,var(--review) 30%,transparent)}
+.callout-warn>.ic{color:var(--review)}
+
+/* ===== KPI cards ===== */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s3)}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);box-shadow:var(--shadow-1);padding:var(--s3) var(--s4);min-width:0}
+.kpi-label{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:var(--fs-sm);font-weight:550}
+.kpi-value{font-size:22px;font-weight:650;letter-spacing:-.02em;margin-top:2px;white-space:nowrap}
+.kpi-sub{color:var(--ink-3);font-size:var(--fs-xs);margin-top:1px}
+
+/* ===== Charts ===== */
+.donut-wrap{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap}
+.donut{width:168px;height:168px;flex:none}
+.donut circle{fill:none;stroke-width:16}
+.donut .track{stroke:var(--seg-free)}
+.donut .sweep{stroke:#fff;stroke-width:20;stroke-dasharray:100 100;animation:sweep .9s var(--ease) both}
+.donut .c-big{font-size:22px;font-weight:650;fill:var(--ink);letter-spacing:-.02em}
+.donut .c-small{font-size:10px;fill:var(--ink-3)}
+.legend{list-style:none;margin:0;padding:0;display:grid;gap:var(--s2);flex:1;min-width:200px}
+.legend li{display:grid;grid-template-columns:12px 1fr auto auto;gap:var(--s2);align-items:center;font-size:var(--fs-sm)}
+.legend .v{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.legend .p{color:var(--ink-3);font-variant-numeric:tabular-nums;text-align:right;min-width:3.5em}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.sw-found{background:var(--seg-found)}.sw-gap{background:var(--seg-gap)}.sw-free{background:var(--seg-free);box-shadow:inset 0 0 0 1px var(--line-2)}.sw-reserved{background:var(--seg-reserved)}
+.seg-found{stroke:var(--seg-found)}.seg-gap{stroke:var(--seg-gap)}.seg-free{stroke:var(--seg-free)}.seg-reserved{stroke:var(--seg-reserved)}
+.stackbar{display:flex;gap:2px;height:28px;border-radius:var(--r1);overflow:hidden;transform-origin:left;animation:grow .7s var(--ease) both}
+.stackbar span{min-width:2px}
+.s1{background:var(--series-1)}.s2{background:var(--series-2)}.s3{background:var(--series-3)}.s4{background:var(--series-4)}
+.s5{background:var(--series-5)}.s6{background:var(--series-6)}.s7{background:var(--series-7)}.s-other{background:var(--series-other)}
+.toplist{list-style:none;margin:var(--s3) 0 0;padding:0}
+.toplist li{display:grid;grid-template-columns:12px minmax(0,1fr) 5.5em 3.6em 128px;gap:var(--s3);align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:var(--fs-sm)}
+.toplist li:first-child{border-top:0}
+.toplist .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}
+.toplist .v{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.toplist .p{color:var(--ink-3);font-variant-numeric:tabular-nums;text-align:right}
+.meter{height:8px;background:var(--meter-track);border-radius:999px;overflow:hidden;min-width:60px}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:999px;transform-origin:left;animation:grow .7s var(--ease) both}
+
+/* ===== Tables ===== */
+.toolbar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;padding:0 var(--s4) var(--s3)}
+.search{position:relative;flex:1;max-width:420px;min-width:200px}
+.search .ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
+.search input{width:100%;padding:7px 10px 7px 32px;border:1px solid var(--line-2);border-radius:var(--r1);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--fs-sm)}
+.search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.count{color:var(--ink-3);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.table-wrap{overflow:auto;max-height:70vh;border-top:1px solid var(--line)}
+.panel-body .table-wrap{border:1px solid var(--line);border-radius:var(--r2)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--fs-sm)}
+th,td{text-align:left;padding:7px var(--s3);border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+th{position:sticky;top:0;z-index:1;background:var(--surface-2);color:var(--ink-3);font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 55%,transparent)}
+th.num,td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td.size{font-weight:600}
+td.c-path{max-width:30rem;min-width:12rem}
+td.c-advice{min-width:16rem;max-width:30rem;color:var(--ink-2)}
+td.c-acts{width:1%;white-space:nowrap;text-align:right}
+td.empty{text-align:center;color:var(--ink-3);padding:var(--s5)}
+.sort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.sort:focus-visible{box-shadow:var(--focus);border-radius:3px}
+.sort:hover{color:var(--ink)}
+.sort-ic{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:1.6;opacity:.45}
+th[aria-sort="ascending"] .sort-ic .d,th[aria-sort="descending"] .sort-ic .a{opacity:.25}
+th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
+th[aria-sort="ascending"] .sort-ic,th[aria-sort="descending"] .sort-ic{opacity:1}
+.table-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s2) var(--s4);color:var(--ink-3);font-size:var(--fs-sm);border-top:1px solid var(--line)}
+.table-foot:empty{display:none}
+.panel-body .table-foot{border-top:0;padding:var(--s2) 0 0}
+tr.child td:first-child{padding-left:calc(var(--s3) + 18px)}
+tr.grand td:first-child{padding-left:calc(var(--s3) + 38px)}
+tr.grand td{color:var(--ink-2)}
+.indent{color:var(--ink-3);margin-right:4px}
+
+/* paths: truncated at the start so the file or folder name stays visible */
+.path{display:block;font-family:var(--mono);font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;direction:rtl;text-align:left}
+.path>bdi{direction:ltr;unicode-bidi:isolate}
+.path .base{color:var(--ink);font-weight:600}
+.path .dir{color:var(--ink-3)}
+.acts{display:inline-flex;gap:4px;justify-content:flex-end}
+
+/* ===== Badges ===== */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);font-weight:600;line-height:18px;padding:0 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;margin-left:6px}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-safe{color:var(--safe);background:var(--safe-bg)}.b-review{color:var(--review);background:var(--review-bg)}
+.b-keep{color:var(--keep);background:var(--keep-bg)}.b-unknown{color:var(--unknown);background:var(--unknown-bg)}
+.b-denied,.b-partial{color:var(--danger);background:var(--danger-bg)}
+.b-kind{color:var(--accent-ink);background:var(--accent-soft)}
+.b-kind::before,.b-est::before{display:none}
+.b-est{color:var(--ink-3);background:var(--surface-2);font-weight:500}
+.delta-up{color:var(--up);font-weight:600}.delta-down{color:var(--down);font-weight:600}
+.legend-chips{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center}
+.legend-chips .badge{margin-left:0}
+.callout-text ul{margin:0 0 var(--s3);padding-left:1.2em;color:var(--ink-2);font-size:var(--fs-sm)}
+.callout-text li+li{margin-top:var(--s1)}.callout-text p{margin:0 0 var(--s3);color:var(--ink-2);font-size:var(--fs-sm)}
+.toplist.cats li{grid-template-columns:minmax(8rem,16rem) minmax(60px,1fr) 5.5em}
+
+/* ===== Disclosure groups ===== */
+details.group{background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow-1)}
+details.group>summary{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--r3)}
+details.group>summary::-webkit-details-marker{display:none}
+details.group>summary .chev{color:var(--ink-3);transition:transform .18s var(--ease)}
+details.group[open]>summary .chev{transform:rotate(90deg)}
+details.group>summary:hover{background:var(--surface-2)}
+details.group[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--r3) var(--r3) 0 0}
+.sum-title{font-weight:600;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px var(--s2)}
+.sum-title .dim{font-weight:400;font-size:var(--fs-sm)}
+.sum-size{font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.group-body{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s3)}
+.group-body>.note{margin:0;color:var(--ink-3);font-size:var(--fs-sm)}
+.loc{display:grid;gap:var(--s2)}
+.loc+.loc{border-top:1px dashed var(--line-2);padding-top:var(--s3)}
+.loc-head{display:flex;align-items:center;gap:var(--s3);font-size:var(--fs-sm)}
+.loc-head .path{flex:1;min-width:0}
+.loc-head .v{font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.subhead{font-size:var(--fs-sm);font-weight:600;color:var(--ink-2);margin:var(--s2) 0 0}
+
+/* ===== Folder tree ===== */
+.tree{font-size:var(--fs-sm)}
+.trow{display:grid;grid-template-columns:minmax(220px,1fr) minmax(80px,140px) 84px 56px 84px 124px;gap:var(--s3);align-items:center;padding:4px var(--s4);border-bottom:1px solid var(--line);min-height:34px}
+.tree.has-delta .trow{grid-template-columns:minmax(220px,1fr) minmax(80px,140px) 84px 56px 84px 84px 124px}
+.tree:not(.has-delta) .c-delta{display:none}
+.trow:hover{background:color-mix(in srgb,var(--accent-soft) 55%,transparent)}
+.thead{position:sticky;top:45px;z-index:1;background:var(--surface-2);color:var(--ink-3);font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.04em;min-height:30px}
+.trow .num{text-align:right;font-variant-numeric:tabular-nums}
+.tname{display:flex;align-items:center;gap:4px;min-width:0;padding-left:calc(var(--depth,0) * 18px)}
+.tname .label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.caret{all:unset;flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:5px;cursor:pointer;color:var(--ink-3)}
+.caret:hover{background:var(--surface-3);color:var(--ink)}
+.caret:focus-visible{box-shadow:var(--focus)}
+.caret .ic{width:14px;height:14px;transition:transform .15s var(--ease)}
+.caret[aria-expanded="true"] .ic{transform:rotate(90deg)}
+.caret-pad{width:22px;flex:none}
+.pseudo .label{color:var(--ink-3);font-style:italic}
+.tree-msg{padding:var(--s3) var(--s4);color:var(--ink-3);font-size:var(--fs-sm)}
+
+/* ===== Empty state, footer, toast ===== */
+.empty-state{display:grid;justify-items:center;gap:var(--s2);text-align:center;padding:var(--s6) var(--s4);color:var(--ink-3)}
+.empty-state .ic{width:28px;height:28px;color:var(--line-2)}
+.empty-state b{color:var(--ink-2)}
+footer{border-top:1px solid var(--line);color:var(--ink-3);font-size:var(--fs-sm)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center;padding-top:var(--s4);padding-bottom:var(--s5)}
+footer .brand{font-size:var(--fs-sm);margin-right:0;color:var(--ink-2)}
+footer .brand svg{width:18px;height:18px}
+footer .ro{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.toast{position:fixed;left:50%;bottom:var(--s5);transform:translate(-50%,8px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:var(--r2);box-shadow:var(--shadow-2);font-size:var(--fs-sm);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s var(--ease);max-width:min(560px,calc(100vw - 32px));z-index:30}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes sweep{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ===== Responsive ===== */
+@media (max-width:980px){.grid-2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  .wrap{padding:0 var(--s4)}
+  .hero h1{font-size:var(--fs-xl)}
+  .tree .trow,.tree.has-delta .trow{grid-template-columns:minmax(0,1fr) 72px 124px;padding:4px var(--s3)}
+  .trow>.c-bar,.trow>.c-pct,.trow>.c-files,.trow>.c-delta{display:none}
+  .sm-hide{display:none}
+  td.c-path{min-width:10rem;max-width:16rem}
+  td.c-advice{min-width:12rem}
+  .toplist li{grid-template-columns:12px minmax(0,1fr) 5em 124px}
+  .toplist .p{display:none}
+  .btn-label{display:none}
+  .donut-wrap{justify-content:center}
+  footer .ro{margin-left:0}
+}
+
+/* ===== Print ===== */
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface-2:#f3f4f6;--shadow-1:none}
+  body{font-size:11px;background:#fff}
+  .topbar .top-actions,.tabbar,.volumes,.toolbar .search,.acts,.c-acts,.caret,.skip,.toast,[data-showall]{display:none!important}
+  .wrap{max-width:none;padding:0}
+  main{padding-top:var(--s2)}
+  [role="tabpanel"][data-available]{display:block!important;animation:none}
+  [role="tabpanel"]+[role="tabpanel"]{margin-top:var(--s5)}
+  .section-title{display:block;font-size:var(--fs-xl);margin:0 0 var(--s3);padding-bottom:var(--s2);border-bottom:2px solid #000;break-after:avoid}
+  .panel,.kpi,details.group,.callout{box-shadow:none;break-inside:avoid-page}
+  .table-wrap{max-height:none;overflow:visible}
+  th{position:static}
+  .thead{position:static}
+  .path{white-space:normal;word-break:break-all;direction:ltr;overflow:visible}
+  details.group>summary .chev{display:none}
+  .stackbar,.meter i{animation:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{margin:14mm}
+}
+</style>
+</head>
+<body>
+<script>window.DS_TOKEN = "";</script>
+<script id="ds-data" type="application/json">__DS_DATA__</script>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-overview" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="5" rx="1"/><rect x="14" y="10" width="7" height="4" rx="1"/><rect x="14" y="17" width="7" height="4" rx="1"/><path d="M6 8v11h8M6 12h8"/></symbol>
+  <symbol id="i-hot" viewBox="0 0 24 24"><path d="M12 3c.8 3.4 5 5.6 5 10.2A5 5 0 0 1 7 13.2c0-2 .9-3.5 2-4.6.3 1.5 1 2.6 2 3.1-.2-3 .1-5.7 1-8.7z"/></symbol>
+  <symbol id="i-agents" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M10 10h4v4h-4zM9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+  <symbol id="i-system" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+  <symbol id="i-programs" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+  <symbol id="i-docs" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7 5h10l2 8"/><path d="M16.5 16.5h.01"/></symbol>
+  <symbol id="i-free" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.4M12 17h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 10.6 3.8 3.8 0 0 1 17.5 18z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-files" viewBox="0 0 24 24"><path d="M8 3h7l4 4v11H8z"/><path d="M5 7v14h11"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 2.5 8 12 13l9.5-5z"/><path d="M2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></symbol>
+  <symbol id="i-brand" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--accent)" stroke="none"/><g stroke="none" fill="var(--on-accent)"><rect x="7" y="8" width="18" height="4" rx="2" opacity=".55"/><rect x="7" y="14" width="13" height="4" rx="2" opacity=".8"/><rect x="7" y="20" width="18" height="4" rx="2"/></g></symbol>
+</svg>
+
+<a class="skip" href="#main">Skip to report</a>
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand"><svg aria-hidden="true"><use href="#i-brand"/></svg><span>DiskStrata</span></div>
+    <div class="top-actions">
+      <a id="back" class="btn btn-ghost" href="/" hidden><svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><span>Back to scanner</span></a>
+      <button id="print" class="btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-print"/></svg><span class="btn-label">Print / PDF</span><span class="sr-only">Print or save as PDF</span></button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero" aria-labelledby="title">
+    <div>
+      <h1 id="title">Storage report</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="volumes" id="volumes" role="group" aria-label="Volume" hidden></div>
+  </section>
+</div>
+<nav class="tabbar" aria-label="Report sections">
+  <div class="wrap"><div role="tablist" id="tabs" aria-label="Report sections"></div></div>
+</nav>
+<main id="main" class="wrap" tabindex="-1"></main>
+<footer>
+  <div class="wrap">
+    <div class="brand"><svg aria-hidden="true"><use href="#i-brand"/></svg><span id="foot-version">DiskStrata</span></div>
+    <span id="foot-generated"></span>
+    <span class="ro"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Read-only report. DiskStrata never changes your files.</span>
+  </div>
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+(() => {
+const DATA = JSON.parse(document.getElementById('ds-data').textContent);
+const META = DATA.meta || {};
+const VOLUMES = Array.isArray(DATA.volumes) ? DATA.volumes : [];
+const OS = ['windows', 'linux', 'macos'].includes(META.os) ? META.os : 'linux';
+const SEP = META.sep || (OS === 'windows' ? '\\' : '/');
+const MB = 1024 ** 2, GB = 1024 ** 3;
+
+/* Static, trusted copy per OS. These strings may contain markup; data never does. */
+const COPY = {
+  windows: {
+    fileManager: 'File Explorer',
+    elevated: 'Administrator',
+    rescan: 'run the scan again as Administrator',
+    systemTab: 'System / Windows',
+    systemNote: 'Use Windows\' own tools for these and do not remove them by hand. "Disk Cleanup" means running <code>cleanmgr</code> and choosing <b>Clean up system files</b>. Storage Sense is under Settings &gt; System &gt; Storage.',
+    uninstall: 'Uninstall from Settings &gt; Apps &gt; Installed apps.',
+    unexplained: [
+      'System Restore points and Volume Shadow Copies. As Administrator, check with <code>vssadmin list shadowstorage</code> or Settings &gt; System &gt; About &gt; System protection.',
+      'Folders the scan was denied access to ({denied}).',
+      'NTFS metadata such as the MFT, the USN change journal and $LogFile.'],
+    overcount: 'The scan counted more than the volume reports as used. Sizes are logical: compressed and sparse files count at their full size, and hard links (common in WinSxS) count once per link.',
+  },
+  linux: {
+    fileManager: 'your file manager',
+    elevated: 'root',
+    rescan: 'run the scan again as root (sudo)',
+    systemTab: 'System',
+    systemNote: 'Use your distribution\'s own tools for these (package-manager cache cleanup, <code>journalctl --vacuum-size</code> and similar) rather than removing them by hand.',
+    uninstall: 'Uninstall with your package manager (apt, dnf, pacman, snap or flatpak).',
+    unexplained: [
+      'Filesystem snapshots: btrfs subvolume snapshots, ZFS snapshots or LVM snapshots (<code>btrfs subvolume list /</code>, <code>zfs list -t snapshot</code>, <code>lvs</code>).',
+      'ext4 reserved blocks, usually 5% kept for root (<code>tune2fs -l</code> shows the reserved block count).',
+      'Deleted files that a running process still holds open (<code>lsof +L1</code> lists them).',
+      'Files hidden underneath a mount point, where another filesystem is mounted over a non-empty folder.',
+      'Folders the scan was denied access to ({denied}), plus filesystem metadata and the journal.'],
+    overcount: 'The scan counted more than the filesystem reports as used. This usually means files changed while the scan was running, or that reflinked copies sharing the same blocks were counted once per copy.',
+  },
+  macos: {
+    fileManager: 'Finder',
+    elevated: 'root',
+    rescan: 'run the scan again as root (sudo) and give the app Full Disk Access in System Settings &gt; Privacy &amp; Security',
+    systemTab: 'System',
+    systemNote: 'Use macOS\' own tools for these (System Settings &gt; General &gt; Storage) rather than removing them by hand.',
+    uninstall: 'Remove apps from the Applications folder or with the app\'s own uninstaller.',
+    unexplained: [
+      'APFS local snapshots, including Time Machine local snapshots (<code>tmutil listlocalsnapshots /</code>).',
+      'Purgeable space that macOS can reclaim on demand, such as optimised iCloud files and caches.',
+      'The sealed, read-only system volume and the other volumes that share this APFS container.',
+      'Folders the scan was denied access to ({denied}).'],
+    overcount: 'The scan counted more than the volume reports as used. This usually means files changed while the scan was running, or that APFS clones sharing the same blocks were counted once per copy.',
+  },
+}[OS];
+
+/* ---------- formatting ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sum = (list, f = x => x.s) => list.reduce((a, x) => a + (f(x) || 0), 0);
+const pct = (a, b) => b ? a / b * 100 : 0;
+const fmtPct = p => (p > 0 && p < 0.1 ? '<0.1' : p.toFixed(p < 10 ? 1 : 0)) + '%';
+const fmtInt = n => n == null ? '–' : Number(n).toLocaleString();
+function fmtBytes(b) {
+  if (b == null || isNaN(b)) return '–';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let v = Math.abs(b), i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return (b < 0 ? '−' : '') + (i === 0 || v >= 100 ? v.toFixed(0) : v.toFixed(1)) + ' ' + units[i];
+}
+function fmtDuration(s) {
+  s = Math.round(s || 0);
+  if (s < 60) return s + ' s';
+  if (s < 3600) return Math.floor(s / 60) + ' min ' + (s % 60) + ' s';
+  return Math.floor(s / 3600) + ' h ' + Math.floor(s % 3600 / 60) + ' min';
+}
+const pad2 = n => String(n).padStart(2, '0');
+function fmtDay(unix) {
+  if (!unix) return '';
+  const d = new Date(unix * 1000);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+/* Run ids look like 20261120_1914 or 20261121_111246. */
+function fmtRunId(id) {
+  const m = /^(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)/.exec(id || '');
+  return m ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}` : String(id || '');
+}
+const fmtInstallDate = d => /^\d{8}$/.test(d || '') ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : (d || '');
+const joinPath = (a, b) => a.endsWith(SEP) ? a + b : a + SEP + b;
+const baseName = p => String(p).split(SEP).filter(Boolean).pop() || String(p);
+
+/* ---------- markup helpers ---------- */
+const icon = name => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const SORT_ICON = '<svg class="sort-ic" viewBox="0 0 12 12" aria-hidden="true"><path class="a" d="M3 5l3-3 3 3"/><path class="d" d="M3 7l3 3 3-3"/></svg>';
+const HINTS = { safe: 'Cache or data that regenerates', review: 'Your data or history: you decide', keep: 'Needed by the app', unknown: 'Not recognised: inspect manually' };
+const hintBadge = h => h ? `<span class="badge b-${HINTS[h] ? h : 'unknown'}" title="${esc(HINTS[h] || '')}">${esc(h)}</span>` : '';
+const kindBadge = k => k ? `<span class="badge b-kind">${esc(k)}</span>` : '';
+function statusBadge(st) {
+  if (st !== 'denied' && st !== 'partial') return '';
+  const title = `Size may be incomplete: ${COPY.rescan.replace(/<[^>]+>/g, '').replace(/&gt;/g, '>').replace(/&amp;/g, '&')} for the full size`;
+  return `<span class="badge b-${st}" title="${esc(title)}">${st === 'denied' ? 'access denied' : 'partly denied'}</span>`;
+}
+function pathHtml(p) {
+  const s = String(p ?? ''), i = s.lastIndexOf(SEP, s.length - 2);
+  const dir = i >= 0 ? s.slice(0, i + 1) : '', base = s.slice(dir.length);
+  return `<span class="path" title="${esc(s)}"><bdi><span class="dir">${esc(dir)}</span><span class="base">${esc(base)}</span></bdi></span>`;
+}
+function actions(p, isFile) {
+  if (!p) return '';
+  const where = isFile ? 'Show the file in ' : 'Open the folder in ';
+  return `<span class="acts"><button type="button" class="btn btn-sm" data-open="${esc(p)}" data-file="${isFile ? 1 : 0}" title="${esc(where + COPY.fileManager)}">${icon('open')}Open</button>` +
+    `<button type="button" class="btn btn-sm" data-copy="${esc(p)}" title="Copy the full path">${icon('copy')}Copy</button></span>`;
+}
+const meter = p => `<div class="meter" role="presentation"><i style="width:${Math.max(0, Math.min(100, p)).toFixed(1)}%"></i></div>`;
+function panel({ title, ic, note, aside, body, flush }) {
+  return `<section class="panel"><div class="panel-head"><div><h3>${ic ? icon(ic) : ''}${title}</h3>${note ? `<p>${note}</p>` : ''}</div>${aside ? `<span class="aside">${aside}</span>` : ''}</div>` +
+    `<div class="panel-body${flush ? ' flush' : ''}">${body}</div></section>`;
+}
+function group({ title, sub, size, open, body }) {
+  return `<details class="group"${open ? ' open' : ''}><summary>${icon('chev').replace('class="ic"', 'class="ic chev"')}` +
+    `<span class="sum-title">${title}${sub ? `<span class="dim">${sub}</span>` : ''}</span><span class="sum-size">${size}</span></summary><div class="group-body">${body}</div></details>`;
+}
+const callout = (kind, ic, html) => `<div class="callout callout-${kind}">${icon(ic)}<div>${html}</div></div>`;
+const emptyState = (ic, title, text) => `<div class="empty-state">${icon(ic)}<b>${title}</b><span>${text}</span></div>`;
+
+/* ---------- table component ---------- */
+/* Tables are declared while building a tab's HTML and mounted afterwards, so each
+   keeps its own sort/filter/row-cap state without any global registry. */
+function createSlots() {
+  const specs = [];
+  return {
+    table(spec) { specs.push(spec); return `<div data-slot="${specs.length - 1}"></div>`; },
+    mount(root) { root.querySelectorAll('[data-slot]').forEach(n => mountTable(n, specs[+n.dataset.slot])); },
+  };
+}
+function compareBy(key, dir) {
+  return (a, b) => {
+    const x = key(a), y = key(b);
+    if (x == null || x === '') return 1;
+    if (y == null || y === '') return -1;
+    const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
+    return dir === 'ascending' ? r : -r;
+  };
+}
+function mountTable(host, { cols, rows, cap = 100, search, sorted, empty = 'Nothing found.', label, rowClass }) {
+  cols = cols.filter(Boolean);
+  let order = rows, query = '', limit = cap;
+  const sort = sorted ? { ...sorted } : { i: -1, dir: 'none' };
+  const head = cols.map((c, i) => {
+    const cls = [c.num && 'num', c.sm && 'sm-hide'].filter(Boolean).join(' ');
+    const text = c.h ? esc(c.h) : '<span class="sr-only">Actions</span>';
+    return `<th scope="col"${cls ? ` class="${cls}"` : ''}${c.key ? ` aria-sort="${i === sort.i ? sort.dir : 'none'}"` : ''}>` +
+      (c.key ? `<button type="button" class="sort" data-i="${i}">${text}${SORT_ICON}</button>` : text) + '</th>';
+  }).join('');
+  host.innerHTML = (search ? `<div class="toolbar"><label class="search">${icon('search')}<span class="sr-only">${esc(search.label)}</span>` +
+      `<input type="search" placeholder="${esc(search.label)}" autocomplete="off" spellcheck="false"></label><span class="count"></span></div>` : '') +
+    `<div class="table-wrap"><table${label ? ` aria-label="${esc(label)}"` : ''}><thead><tr>${head}</tr></thead><tbody></tbody></table></div><div class="table-foot"></div>`;
+  const tbody = host.querySelector('tbody'), foot = host.querySelector('.table-foot'), count = host.querySelector('.count');
+  const cell = (c, r) => `<td class="${[c.num && 'num', c.cls, c.sm && 'sm-hide'].filter(Boolean).join(' ')}">${c.f(r)}</td>`;
+
+  function draw() {
+    const q = query.toLowerCase();
+    const list = q ? order.filter(r => search.text(r).toLowerCase().includes(q)) : order;
+    const shown = list.length > limit ? list.slice(0, limit) : list;
+    tbody.innerHTML = shown.map(r => `<tr${rowClass && rowClass(r) ? ` class="${rowClass(r)}"` : ''}>${cols.map(c => cell(c, r)).join('')}</tr>`).join('') ||
+      `<tr><td class="empty" colspan="${cols.length}">${esc(q ? 'No rows match your search.' : empty)}</td></tr>`;
+    foot.innerHTML = list.length > limit
+      ? `<span>Showing ${fmtInt(limit)} of ${fmtInt(list.length)}</span><button type="button" class="btn btn-sm" data-showall>Show all ${fmtInt(list.length)}</button>` : '';
+    if (count) count.textContent = q ? `${fmtInt(list.length)} of ${fmtInt(rows.length)}` : `${fmtInt(rows.length)} total`;
+  }
+  host.addEventListener('click', e => {
+    if (e.target.closest('[data-showall]')) { limit = Infinity; draw(); return; }
+    const b = e.target.closest('button.sort'); if (!b) return;
+    const i = +b.dataset.i, c = cols[i];
+    sort.dir = sort.i === i ? (sort.dir === 'ascending' ? 'descending' : 'ascending') : (c.num ? 'descending' : 'ascending');
+    sort.i = i;
+    order = rows.slice().sort(compareBy(c.key, sort.dir));
+    host.querySelectorAll('th[aria-sort]').forEach(th => th.setAttribute('aria-sort', th.querySelector('.sort').dataset.i == i ? sort.dir : 'none'));
+    draw();
+  });
+  if (search) {
+    let timer;
+    host.querySelector('input').addEventListener('input', e => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { query = e.target.value.trim(); limit = cap; draw(); }, 150);
+    });
+  }
+  draw();
+}
+const SIZE_DESC = i => ({ i, dir: 'descending' });
+
+/* ---------- per-volume context ---------- */
+const QUICK_HOTSPOT = /Temp|Python|JS|Browser/;
+
+function volumeLabel(v) { return OS === 'windows' ? (v.id || v.root) : (v.root || v.id); }
+function makeContext(v) {
+  let flat = null;
+  return {
+    v,
+    label: volumeLabel(v),
+    hasPrev: v.prev != null,
+    gap: (v.disk?.used || 0) - (v.scan?.size || 0),
+    /* Every folder in the tree with its full path, computed once and only when needed. */
+    flat() {
+      if (flat) return flat;
+      flat = [];
+      const walk = (n, p, depth) => { flat.push({ n, p, depth }); (n.c || []).forEach(c => walk(c, joinPath(p, c.n), depth + 1)); };
+      if (v.tree) walk(v.tree, v.tree.n || v.root, 0);
+      return flat;
+    },
+  };
+}
+function deltaHtml(ctx, n) {
+  if (!ctx.hasPrev || n.d == null) return '';
+  if (n.nw) return '<span class="delta-up">new</span>';
+  if (Math.abs(n.d) < 20 * MB) return '<span class="dim" title="Changed by less than 20 MB">±0</span>';
+  return `<span class="${n.d > 0 ? 'delta-up' : 'delta-down'}">${n.d > 0 ? '+' : ''}${fmtBytes(n.d)}</span>`;
+}
+
+/* ---------- shared column sets ---------- */
+const COL = {
+  size: (get = r => r.s) => ({ h: 'Size', num: 1, cls: 'size', key: get, f: r => fmtBytes(get(r)) }),
+  acts: (getPath, isFile) => ({ h: '', cls: 'c-acts', f: r => actions(getPath(r), isFile(r)) }),
+  path: (get, h = 'Path') => ({ h, cls: 'c-path', key: r => get(r).toLowerCase(), f: r => pathHtml(get(r)) }),
+  modified: () => ({ h: 'Modified', num: 1, key: r => r.m || 0, sm: 1, f: r => fmtDay(r.m) }),
+};
+function adviceTable(slots, rows, advice, label) {
+  return slots.table({
+    label, rows, sorted: SIZE_DESC(2), empty: 'Nothing found.',
+    cols: [
+      { h: 'What', key: r => r.label, f: r => esc(r.label) + statusBadge(r.st) },
+      COL.path(r => r.path),
+      COL.size(),
+      { h: advice, cls: 'c-advice', f: r => esc(r.advice) },
+      COL.acts(r => r.path, r => r.st === 'file'),
+    ],
+  });
+}
+const folderCols = ctx => [
+  { h: 'Folder', cls: 'c-path', key: r => r.p.toLowerCase(), f: r => pathHtml(r.p) + kindBadge(r.n.k) },
+  COL.size(r => r.n.s),
+  ctx.hasPrev && { h: 'Change', num: 1, key: r => r.n.d || 0, f: r => deltaHtml(ctx, r.n) },
+  COL.acts(r => r.p, () => false),
+];
+
+/* ---------- overview ---------- */
+function categoryTotals(v) {
+  const t = new Map(), add = (k, s) => s > 0 && t.set(k, (t.get(k) || 0) + s);
+  v.hotspots.forEach(h => add(h.cat, h.s));
+  add('AI agents', sum(v.agents));
+  add('Python environments (venv / conda)', sum(v.envs));
+  add('node_modules', sum(v.node_modules));
+  add('Stale system data', sum(v.system.filter(s => s.stale)));
+  return [...t].sort((a, b) => b[1] - a[1]);
+}
+function kpiCards(ctx) {
+  const { v } = ctx, d = v.disk, s = v.scan;
+  const cards = [
+    ['drive', 'Used', fmtBytes(d.used), `${fmtPct(pct(d.used, d.total))} of ${fmtBytes(d.total)}`],
+    ['free', 'Free', fmtBytes(d.free), `${fmtPct(pct(d.free, d.total))} available`],
+    ['search', 'Found by scan', fmtBytes(s.size), `${fmtInt(s.files)} files · ${fmtInt(s.dirs)} folders`],
+    ctx.gap >= 0
+      ? ['help', 'Not explained', fmtBytes(ctx.gap), `${fmtPct(pct(ctx.gap, d.used))} of used space`]
+      : ['help', 'Over-counted', fmtBytes(-ctx.gap), 'scan exceeds used space'],
+    ['lock', 'Access denied', fmtInt(s.denied), s.denied ? 'folders could not be read' : 'every folder was readable'],
+    s.cloud > 0 && ['cloud', 'Cloud-only', fmtBytes(s.cloud), 'online files, not on disk'],
+    ['clock', 'Scan time', fmtDuration(v.elapsed), `${fmtInt(Math.round(s.files / Math.max(1, v.elapsed)))} files per second`],
+  ].filter(Boolean);
+  return `<div class="kpis">${cards.map(([ic, label, value, sub]) =>
+    `<div class="kpi"><div class="kpi-label">${icon(ic)}${label}</div><div class="kpi-value">${value}</div><div class="kpi-sub">${sub}</div></div>`).join('')}</div>`;
+}
+function donutPanel(ctx) {
+  const { v } = ctx, d = v.disk, total = d.total || 1;
+  const found = Math.min(v.scan.size, d.used), unexplained = Math.max(0, ctx.gap);
+  const reserved = Math.max(0, d.total - d.used - d.free);
+  const segs = [
+    { cls: 'found', label: 'Found by scan', value: found },
+    unexplained > 0 && { cls: 'gap', label: 'Used, not explained by the scan', value: unexplained },
+    reserved > total * 0.002 && { cls: 'reserved', label: 'Reserved / unavailable', value: reserved },
+    { cls: 'free', label: 'Free', value: d.free },
+  ].filter(Boolean);
+  const R = 52;
+  let offset = 0;
+  const arcs = segs.filter(s => s.cls !== 'free').map(s => {
+    const len = pct(s.value, total), visible = Math.max(0, len - (len > 1 ? 0.6 : 0));
+    const arc = `<circle class="seg-${s.cls}" r="${R}" cx="60" cy="60" pathLength="100" stroke-dasharray="${visible.toFixed(2)} ${(100 - visible).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 60 60)"/>`;
+    offset += len;
+    return arc;
+  }).join('');
+  const usedPct = pct(d.used, total);
+  const svg = `<svg class="donut" viewBox="0 0 120 120" role="img" aria-label="${esc(`${fmtPct(usedPct)} of ${ctx.label} used`)}">
+    <defs><mask id="donut-sweep"><circle class="sweep" r="${R}" cx="60" cy="60" pathLength="100" transform="rotate(-90 60 60)"/></mask></defs>
+    <circle class="track" r="${R}" cx="60" cy="60"/><g mask="url(#donut-sweep)">${arcs}</g>
+    <text class="c-big" x="60" y="61" text-anchor="middle">${usedPct.toFixed(0)}%</text><text class="c-small" x="60" y="76" text-anchor="middle">used</text></svg>`;
+  const legend = `<ul class="legend">${segs.map(s =>
+    `<li><span class="sw sw-${s.cls}"></span><span>${s.label}</span><span class="v">${fmtBytes(s.value)}</span><span class="p">${fmtPct(pct(s.value, total))}</span></li>`).join('')}</ul>`;
+  return panel({ title: 'Disk usage', ic: 'overview', note: `${fmtBytes(d.total)} capacity`, body: `<div class="donut-wrap">${svg}${legend}</div>` });
+}
+function topFoldersPanel(ctx) {
+  const t = ctx.v.tree;
+  if (!t || !t.s) return panel({ title: 'Largest top-level folders', ic: 'layers', body: emptyState('layers', 'No folders', 'The scan did not record any folders.') });
+  const top = (t.c || []).slice().sort((a, b) => b.s - a.s).slice(0, 7).filter(c => c.s > 0);
+  const rest = t.s - sum(top);
+  const items = top.map((c, i) => ({ name: c.n, path: joinPath(t.n, c.n), s: c.s, cls: 's' + (i + 1) }));
+  if (rest > 0) items.push({ name: 'Everything else', s: rest, cls: 's-other' });
+  const bar = `<div class="stackbar" aria-hidden="true">${items.map(x =>
+    `<span class="${x.cls}" style="flex:${pct(x.s, t.s).toFixed(3)} 1 0" title="${esc(`${x.name}: ${fmtBytes(x.s)} (${fmtPct(pct(x.s, t.s))})`)}"></span>`).join('')}</div>`;
+  const list = `<ul class="toplist">${items.map(x =>
+    `<li><span class="sw ${x.cls}"></span><span class="n" title="${esc(x.path || x.name)}">${esc(x.name)}</span><span class="v">${fmtBytes(x.s)}</span><span class="p">${fmtPct(pct(x.s, t.s))}</span>${x.path ? actions(x.path, false) : '<span></span>'}</li>`).join('')}</ul>`;
+  return panel({ title: 'Largest top-level folders', ic: 'layers', note: `Share of the ${fmtBytes(t.s)} found under ${esc(t.n)}`, body: bar + list });
+}
+function categoryPanel(v) {
+  const totals = categoryTotals(v), max = totals.length ? totals[0][1] : 1;
+  if (!totals.length) return '';
+  const rows = totals.map(([k, s]) => `<li><span class="n" title="${esc(k)}">${esc(k)}</span>${meter(pct(s, max))}<span class="v">${fmtBytes(s)}</span></li>`).join('');
+  return panel({ title: 'Space by category', ic: 'hot', note: 'Categories can overlap: a node_modules folder inside an agent folder counts in both.',
+    body: `<ul class="toplist cats">${rows}</ul>` });
+}
+function elevationNotice(v) {
+  if (META.admin) return '';
+  return callout('warn', 'alert', `<p><b>Scanned with standard rights.</b> ${fmtInt(v.scan.denied)} folder${v.scan.denied === 1 ? '' : 's'} could not be read, so their size counts as "not explained". For a complete picture, ${COPY.rescan}.</p>`);
+}
+function unexplainedPanel(ctx) {
+  const { v } = ctx, denied = fmtInt(v.scan.denied);
+  const sample = (v.scan.denied_sample || []);
+  const causes = ctx.gap >= 0
+    ? `<ul>${COPY.unexplained.map(c => `<li>${c.replace('{denied}', denied)}</li>`).join('')}</ul>`
+    : `<p>${COPY.overcount}</p>`;
+  const deniedList = sample.length
+    ? group({ title: 'Folders the scan could not read', sub: `sample of ${fmtInt(sample.length)}`, size: fmtInt(v.scan.denied), body: `<div>${sample.map(p => pathHtml(p)).join('')}</div>` })
+    : '';
+  return panel({
+    title: ctx.gap >= 0 ? `Not explained by the scan: ${fmtBytes(ctx.gap)}` : `Scan exceeds used space by ${fmtBytes(-ctx.gap)}`,
+    ic: 'help',
+    note: ctx.gap >= 0 ? 'Used space the scan could not attribute to a folder. Usual causes:' : '',
+    body: `<div class="callout-text">${causes}</div>${deniedList}`,
+  });
+}
+function renderOverview(el, ctx) {
+  const { v } = ctx, slots = createSlots(), flat = ctx.flat();
+  // "Where the bulk sits": big folders whose size is spread out rather than inside one child.
+  const bulk = flat.filter(x => x.depth > 0 && x.n.s >= GB && !((x.n.c || [])[0]?.s >= 0.6 * x.n.s)).sort((a, b) => b.n.s - a.n.s).slice(0, 20);
+  const growth = ctx.hasPrev ? flat.filter(x => x.n.d > 100 * MB && !(x.n.c || []).some(c => c.d > 0.6 * x.n.d)).sort((a, b) => b.n.d - a.n.d).slice(0, 12) : [];
+  const quick = [...v.hotspots.filter(h => QUICK_HOTSPOT.test(h.cat)), ...v.system.filter(x => x.stale)]
+    .filter(x => x.s >= 500 * MB).sort((a, b) => b.s - a.s).slice(0, 12);
+  el.innerHTML = `<div class="stack">
+    ${kpiCards(ctx)}
+    ${elevationNotice(v)}
+    <div class="grid-2">${donutPanel(ctx)}${topFoldersPanel(ctx)}</div>
+    ${categoryPanel(v)}
+    ${quick.length ? panel({ title: 'Likely quick wins', ic: 'trend', note: 'Caches, temporary files and stale data of 500 MB or more. The advice is guidance only: you decide what to remove.',
+      body: adviceTable(slots, quick, 'How (you decide)', 'Likely quick wins') }) : ''}
+    ${panel({ title: 'Where the bulk actually sits', ic: 'layers', note: 'Folders of 1 GB or more whose size is spread across many items rather than inside one child.',
+      body: slots.table({ rows: bulk, cols: folderCols(ctx), sorted: SIZE_DESC(1), empty: 'No folder of 1 GB or more has its size spread out.', label: 'Where the bulk sits' }) })}
+    ${growth.length ? panel({ title: `Biggest growth since ${esc(fmtRunId(v.prev))}`, ic: 'trend', note: 'Folders that grew by more than 100 MB, attributed to the deepest folder responsible.',
+      body: slots.table({ rows: growth, cols: folderCols(ctx), sorted: SIZE_DESC(2), label: 'Biggest growth' }) }) : ''}
+    ${unexplainedPanel(ctx)}
+  </div>`;
+  slots.mount(el);
+}
+
+/* ---------- folder tree ---------- */
+const TREE_LIMIT = 300;
+function treeRowHtml(ctx, { name, path, depth, size, parent, node, expandable, title }) {
+  const p = pct(size, parent);
+  const caret = expandable
+    ? `<button type="button" class="caret" aria-expanded="false" aria-label="${esc('Expand ' + name)}">${icon('chev')}</button>`
+    : '<span class="caret-pad"></span>';
+  return `<span class="tname" style="--depth:${depth}">${caret}<span class="label" title="${esc(title || path || name)}">${esc(name)}</span>${node ? kindBadge(node.k) : ''}</span>` +
+    `<span class="c-bar">${meter(p)}</span><span class="num size">${fmtBytes(size)}</span><span class="num dim c-pct">${fmtPct(p)}</span>` +
+    `<span class="num dim c-files">${node ? fmtInt(node.f) : ''}</span><span class="num c-delta">${node ? deltaHtml(ctx, node) : ''}</span>` +
+    `<span>${path ? actions(path, false) : ''}</span>`;
+}
+function treeNode(ctx, node, path, depth, parentSize, label) {
+  const wrap = document.createElement('div'), row = document.createElement('div'), kids = document.createElement('div');
+  const expandable = !!((node.c && node.c.length) || node.o || node.r);
+  row.className = 'trow';
+  row.innerHTML = treeRowHtml(ctx, { name: label || node.n, path, depth, size: node.s, parent: parentSize, node, expandable });
+  kids.hidden = true;
+  wrap.append(row, kids);
+  if (!expandable) return wrap;
+  const caret = row.querySelector('.caret');
+  const pseudo = (name, size) => {
+    const r = document.createElement('div');
+    r.className = 'trow pseudo';
+    r.innerHTML = treeRowHtml(ctx, { name, depth: depth + 1, size, parent: node.s });
+    kids.appendChild(r);
+  };
+  const toggle = () => {
+    if (!kids.childElementCount) {
+      (node.c || []).forEach(c => kids.appendChild(treeNode(ctx, c, joinPath(path, c.n), depth + 1, node.s)));
+      if (node.o) pseudo('(files directly in this folder)', node.o);
+      if (node.r) pseudo(`(${fmtInt(node.rn)} smaller folders, each under 50 MB)`, node.r);
+    }
+    kids.hidden = !kids.hidden;
+    caret.setAttribute('aria-expanded', String(!kids.hidden));
+    caret.setAttribute('aria-label', (kids.hidden ? 'Expand ' : 'Collapse ') + (label || node.n));
+  };
+  caret.addEventListener('click', toggle);
+  row.querySelector('.label').addEventListener('click', toggle);
+  if (depth === 0 && !label) toggle();
+  return wrap;
+}
+function renderTree(el, ctx) {
+  const t = ctx.v.tree;
+  if (!t) { el.innerHTML = emptyState('tree', 'No folder tree', 'This scan did not record a folder tree.'); return; }
+  el.innerHTML = `<section class="panel"><div class="panel-head"><div><h3>${icon('tree')}Folder tree</h3><p>Folders under 50 MB are grouped. Expand a folder to see what it contains.</p></div></div>
+    <div class="panel-body flush"><div class="toolbar"><label class="search">${icon('search')}<span class="sr-only">Search folders</span><input type="search" placeholder="Search folders of 50 MB or more, e.g. cache, venv, temp" autocomplete="off" spellcheck="false"></label><span class="count" aria-live="polite"></span></div>
+    <div class="tree${ctx.hasPrev ? ' has-delta' : ''}"><div class="trow thead" aria-hidden="true"><span>Folder</span><span class="c-bar">Share of parent</span><span class="num">Size</span><span class="num c-pct">%</span><span class="num c-files">Files</span><span class="num c-delta">Change</span><span></span></div><div class="troot"></div></div></div></section>`;
+  const root = el.querySelector('.troot'), input = el.querySelector('input'), count = el.querySelector('.count');
+  const showTree = () => { root.replaceChildren(treeNode(ctx, t, t.n, 0, t.s)); count.textContent = ''; };
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = input.value.trim().toLowerCase();
+      if (!q) return showTree();
+      const hits = ctx.flat().filter(x => x.p.toLowerCase().includes(q)).sort((a, b) => b.n.s - a.n.s);
+      root.replaceChildren(...hits.slice(0, TREE_LIMIT).map(x => treeNode(ctx, x.n, x.p, 0, t.s, x.p)));
+      if (!hits.length) root.innerHTML = '<div class="tree-msg">No folder of 50 MB or more matches your search.</div>';
+      count.textContent = hits.length > TREE_LIMIT ? `${fmtInt(hits.length)} matches, showing the largest ${TREE_LIMIT}` : `${fmtInt(hits.length)} match${hits.length === 1 ? '' : 'es'}`;
+    }, 200);
+  });
+  showTree();
+}
+
+/* ---------- hotspots & caches ---------- */
+function renderHot(el, ctx) {
+  const { v } = ctx, slots = createSlots();
+  const cats = [...new Set(v.hotspots.map(h => h.cat))]
+    .map(cat => ({ cat, rows: v.hotspots.filter(h => h.cat === cat).sort((a, b) => b.s - a.s) }))
+    .sort((a, b) => sum(b.rows) - sum(a.rows));
+  const envCols = [
+    COL.path(r => r.path, 'Location'),
+    { h: 'Type', key: r => r.t || 'node_modules', f: r => kindBadge(r.t || 'node_modules') },
+    COL.size(),
+    COL.acts(r => r.path, () => false),
+  ];
+  const envGroup = (title, list, note, open) => list.length ? group({
+    title: esc(title), sub: `${fmtInt(list.length)} found`, size: fmtBytes(sum(list)), open,
+    body: `<p class="note">${note}</p>` + slots.table({ rows: list.slice().sort((a, b) => b.s - a.s), cols: envCols, sorted: SIZE_DESC(2), cap: 50, label: title,
+      search: list.length > 15 ? { label: 'Filter by path', text: r => r.path } : null }),
+  }) : '';
+  el.innerHTML = `<div class="stack">
+    ${callout('info', 'info', '<p>Caches, temporary files and rebuildable folders. Each row explains how it can be cleaned with the owning tool. <b>Nothing is removed by this report</b>: you decide.</p>')}
+    ${cats.map(({ cat, rows }, i) => group({ title: esc(cat), sub: `${fmtInt(rows.length)} item${rows.length === 1 ? '' : 's'}`, size: fmtBytes(sum(rows)), open: i < 2,
+      body: adviceTable(slots, rows, 'How to clean (you decide)', cat) })).join('')}
+    ${envGroup('Python virtual environments and conda envs', v.envs, 'Detected by pyvenv.cfg or conda-meta. A project venv can be recreated from its requirements or pyproject file.', !cats.length)}
+    ${envGroup('node_modules folders', v.node_modules, 'Top-level node_modules only. Reinstallable with npm, pnpm or yarn install.', false)}
+  </div>`;
+  slots.mount(el);
+}
+
+/* ---------- AI agents ---------- */
+function agentChildTable(slots, items) {
+  const rows = [];
+  items.forEach(i => { rows.push({ ...i, _lvl: 'child' }); (i.c || []).forEach(g => rows.push({ ...g, _lvl: 'grand' })); });
+  return slots.table({
+    rows, cap: 400, rowClass: r => r._lvl, label: 'Contents',
+    cols: [
+      { h: 'Item', f: r => (r._lvl === 'grand' ? '<span class="indent" aria-hidden="true">↳</span>' : '') + (r.rest ? `<span class="dim">${esc(r.n)}</span>` : `<span title="${esc(r.p)}">${esc(r.n)}</span>`) + statusBadge(r.st) },
+      { h: 'Size', num: 1, cls: 'size', f: r => r.rest && !r.s ? '' : fmtBytes(r.s) },
+      { h: 'What it is', cls: 'c-advice', sm: 1, f: r => esc(r.desc) },
+      { h: 'Hint', f: r => hintBadge(r.hint) },
+      { h: '', cls: 'c-acts', f: r => r.rest ? '' : actions(r.p, r.file) },
+    ],
+  });
+}
+function agentGroup(slots, a) {
+  const locs = a.locs.map(l => `<div class="loc"><div class="loc-head">${pathHtml(l.path)}${statusBadge(l.st)}<span class="v">${fmtBytes(l.s)}</span>${actions(l.path, l.file)}</div>` +
+    (l.c && l.c.length ? agentChildTable(slots, l.c) : '') + '</div>').join('');
+  return group({ title: esc(a.name), sub: `${a.locs.length} location${a.locs.length === 1 ? '' : 's'}`, size: fmtBytes(a.s), open: a.s >= GB, body: locs });
+}
+function renderAgents(el, ctx) {
+  const { v } = ctx, slots = createSlots();
+  const legend = callout('info', 'info', `<div class="legend-chips">${Object.keys(HINTS).map(h => `<span>${hintBadge(h)} <span class="dim">${esc(HINTS[h])}</span></span>`).join('')}</div><p>Hints are guidance only. Nothing is removed by this report.</p>`);
+  const dots = v.dotfolders.map(d => agentGroup(slots, {
+    name: baseName(d.path) + (d.desc && !/Unrecognised/i.test(d.desc) ? ' · ' + d.desc : ''),
+    s: d.s, locs: [{ path: d.path, s: d.s, st: d.st, file: d.file, c: d.c }],
+  })).join('');
+  el.innerHTML = `<div class="stack">${legend}${v.agents.map(a => agentGroup(slots, a)).join('')}` +
+    (dots ? `<h3 class="subhead">Other dot-folders in your profile (10 MB or more, not matched to a known tool)</h3>${dots}` : '') + '</div>';
+  slots.mount(el);
+}
+
+/* ---------- system ---------- */
+function renderSystem(el, ctx) {
+  const slots = createSlots(), rows = ctx.v.system.slice().sort((a, b) => b.s - a.s);
+  el.innerHTML = `<div class="stack">${callout('info', 'shield', `<p>${COPY.systemNote}</p>`)}
+    ${panel({ title: 'System items', ic: 'system', aside: fmtBytes(sum(rows)), flush: true, body: adviceTable(slots, rows, 'Advice', 'System items') })}</div>`;
+  slots.mount(el);
+}
+
+/* ---------- programs ---------- */
+function renderPrograms(el, ctx) {
+  const slots = createSlots(), size = r => Math.max(r.est || 0, r.measured || 0);
+  const rows = ctx.v.programs.slice().sort((a, b) => size(b) - size(a));
+  el.innerHTML = panel({
+    title: 'Installed programs', ic: 'programs', note: `${fmtInt(rows.length)} programs. ${COPY.uninstall}`, aside: fmtBytes(sum(rows, size)), flush: true,
+    body: slots.table({
+      rows, label: 'Installed programs', sorted: SIZE_DESC(4), cap: 100,
+      search: { label: 'Filter by name or publisher', text: r => `${r.name} ${r.pub}` },
+      cols: [
+        { h: 'Program', key: r => r.name, f: r => `<b>${esc(r.name)}</b>` },
+        { h: 'Publisher', key: r => r.pub, sm: 1, f: r => `<span class="dim">${esc(r.pub)}</span>` },
+        { h: 'Version', key: r => r.ver, sm: 1, f: r => `<span class="dim">${esc(r.ver)}</span>` },
+        { h: 'Installed', num: 1, key: r => r.date, sm: 1, f: r => esc(fmtInstallDate(r.date)) },
+        { h: 'Size', num: 1, cls: 'size', key: size, f: r => fmtBytes(size(r)) + (r.measured ? '' : '<span class="badge b-est" title="Estimate reported by the installer">est.</span>') },
+        COL.acts(r => r.loc, () => false),
+      ],
+    }),
+  });
+  slots.mount(el);
+}
+
+/* ---------- big files ---------- */
+function renderBig(el, ctx) {
+  const slots = createSlots(), rows = ctx.v.big_files.slice().sort((a, b) => b.s - a.s);
+  el.innerHTML = panel({
+    title: 'Big files', ic: 'file', note: `The ${fmtInt(rows.length)} largest files of 200 MB or more on ${esc(ctx.label)}.`, aside: fmtBytes(sum(rows)), flush: true,
+    body: slots.table({
+      rows, label: 'Big files', sorted: SIZE_DESC(1), cap: 100, empty: 'No file of 200 MB or more was found.',
+      search: { label: 'Filter by path or extension', text: r => r.path },
+      cols: [COL.path(r => r.path, 'File'), COL.size(), COL.modified(), COL.acts(r => r.path, () => true)],
+    }),
+  });
+  slots.mount(el);
+}
+
+/* ---------- documents & downloads ---------- */
+function renderDocs(el, ctx) {
+  const slots = createSlots();
+  const areas = Object.entries(ctx.v.docs).sort((a, b) => b[1].total - a[1].total);
+  el.innerHTML = `<div class="stack">${areas.map(([name, a]) => {
+    const cats = Object.entries(a.cats || {}).map(([k, [s, n]]) => ({ k, s, n })).sort((x, y) => y.s - x.s);
+    return group({
+      title: esc(name), sub: `${fmtBytes(a.old)} older than 180 days`, size: fmtBytes(a.total), open: a.total >= GB,
+      body: slots.table({
+        rows: cats, label: `${name} by type`, sorted: SIZE_DESC(3),
+        cols: [{ h: 'Type', key: r => r.k, f: r => esc(r.k) }, { h: 'Share', sm: 1, f: r => meter(pct(r.s, a.total)) },
+          { h: 'Files', num: 1, key: r => r.n, f: r => fmtInt(r.n) }, COL.size()],
+      }) + `<h4 class="subhead">Largest files</h4>` + slots.table({
+        rows: (a.top || []).slice(), label: `Largest files in ${name}`, sorted: SIZE_DESC(1), empty: 'No large files here.',
+        cols: [COL.path(r => r.path, 'File'), COL.size(), COL.modified(), COL.acts(r => r.path, () => true)],
+      }),
+    });
+  }).join('') || emptyState('docs', 'No document folders', 'No document, download or media folders were found.')}</div>`;
+  slots.mount(el);
+}
+
+/* ---------- tabs & volumes ---------- */
+const TABS = [
+  { id: 'overview', label: 'Overview', ic: 'overview', render: renderOverview },
+  { id: 'tree', label: 'Folder tree', ic: 'tree', render: renderTree },
+  { id: 'hot', label: 'Hotspots & caches', ic: 'hot', render: renderHot, hide: v => !(v.hotspots.length || v.envs.length || v.node_modules.length) },
+  { id: 'agents', label: 'AI agents', ic: 'agents', render: renderAgents, hide: v => !(v.agents.length || v.dotfolders.length) },
+  { id: 'system', label: COPY.systemTab, ic: 'system', render: renderSystem, hide: v => !v.is_system || !v.system.length },
+  { id: 'programs', label: 'Programs', ic: 'programs', render: renderPrograms, hide: v => !v.programs.length },
+  { id: 'big', label: 'Big files', ic: 'file', render: renderBig },
+  { id: 'docs', label: 'Documents & Downloads', ic: 'docs', render: renderDocs, hide: v => !Object.keys(v.docs).length },
+];
+const store = {
+  get(k) { try { return localStorage.getItem('diskstrata.' + k); } catch (e) { return null; } },
+  set(k, val) { try { localStorage.setItem('diskstrata.' + k, val); } catch (e) { /* storage unavailable: preference is not remembered */ } },
+};
+/* Fill in list/object fields the backend may omit so renderers can stay simple. */
+function normalise(v) {
+  ['hotspots', 'envs', 'node_modules', 'agents', 'dotfolders', 'system', 'programs', 'big_files'].forEach(k => { if (!Array.isArray(v[k])) v[k] = []; });
+  v.docs = v.docs || {};
+  v.disk = v.disk || { total: 0, used: 0, free: 0 };
+  v.scan = { size: 0, files: 0, dirs: 0, denied: 0, cloud: 0, denied_sample: [], ...v.scan };
+  return v;
+}
+
+const els = {
+  title: document.getElementById('title'), meta: document.getElementById('meta'), volumes: document.getElementById('volumes'),
+  tabs: document.getElementById('tabs'), main: document.getElementById('main'), toast: document.getElementById('toast'),
+};
+const view = { ctx: null, tabs: [], built: new Set(), current: null };
+
+function buildPanels() {
+  els.main.innerHTML = TABS.map(t =>
+    `<section role="tabpanel" id="p-${t.id}" aria-labelledby="t-${t.id}" tabindex="0" hidden><h2 class="section-title">${esc(t.label)}</h2><div class="panel-content"></div></section>`).join('');
+}
+function ensureBuilt(id) {
+  if (view.built.has(id)) return;
+  view.built.add(id);
+  TABS.find(t => t.id === id).render(document.querySelector(`#p-${id} .panel-content`), view.ctx);
+}
+function selectTab(id, focus) {
+  if (!view.tabs.some(t => t.id === id)) id = 'overview';
+  view.current = id;
+  els.tabs.querySelectorAll('[role="tab"]').forEach(b => {
+    const on = b.dataset.tab === id;
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+    if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (on && focus) b.focus();
+  });
+  TABS.forEach(t => { document.getElementById('p-' + t.id).hidden = t.id !== id; });
+  ensureBuilt(id);
+  store.set('tab', id);
+}
+function renderHeader(ctx) {
+  const v = ctx.v;
+  // "C: Storage report" reads naturally; a bare mount path like "/" does not, so it goes last.
+  const title = OS === 'windows' ? `${ctx.label} Storage report` : `Storage report · ${ctx.label}`;
+  els.title.innerHTML = esc(title) + (v.name ? ` <span class="vol-name">· ${esc(v.name)}</span>` : '');
+  document.title = `${title} · DiskStrata`;
+  const rights = META.admin
+    ? `<span class="chip chip-ok" title="Scanned with ${esc(COPY.elevated)} rights">${icon('shield')}Elevated scan</span>`
+    : `<span class="chip chip-warn" title="Scanned without ${esc(COPY.elevated)} rights: some folders could not be read">${icon('user')}Standard rights</span>`;
+  const items = [
+    `<span>${icon('clock')}Generated ${esc(META.generated)}</span>`,
+    `<span title="Time spent scanning this volume${VOLUMES.length > 1 ? `; the whole scan took ${esc(fmtDuration(META.elapsed))}` : ''}">${icon('search')}Scanned in ${esc(fmtDuration(v.elapsed))}</span>`,
+    `<span>${icon('trend')}${ctx.hasPrev ? `Compared with ${esc(fmtRunId(v.prev))}` : 'First scan of this volume'}</span>`,
+    v.is_system ? `<span class="chip chip-neutral">${icon('drive')}System volume</span>` : '',
+    rights,
+  ];
+  els.meta.innerHTML = items.join('');
+}
+function selectVolume(index) {
+  const v = VOLUMES[index];
+  view.ctx = makeContext(v);
+  view.tabs = TABS.filter(t => !(t.hide && t.hide(v)));
+  view.built.clear();
+  els.volumes.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === index)));
+  store.set('volume', v.id || v.root);
+  renderHeader(view.ctx);
+  els.tabs.innerHTML = view.tabs.map(t =>
+    `<button type="button" role="tab" id="t-${t.id}" data-tab="${t.id}" aria-controls="p-${t.id}" aria-selected="false" tabindex="-1">${icon(t.ic)}<span>${esc(t.label)}</span></button>`).join('');
+  TABS.forEach(t => {
+    const p = document.getElementById('p-' + t.id);
+    p.querySelector('.panel-content').replaceChildren();
+    p.toggleAttribute('data-available', view.tabs.includes(t));
+  });
+  selectTab(view.current || store.get('tab') || 'overview');
+}
+function renderVolumeSwitcher() {
+  if (VOLUMES.length < 2) return;
+  els.volumes.hidden = false;
+  els.volumes.innerHTML = VOLUMES.map((v, i) =>
+    `<button type="button" data-vol="${i}" aria-pressed="false" title="${esc(v.name || v.root)}">${icon('drive')}<span>${esc(volumeLabel(v))}</span><small>${fmtPct(pct(v.disk.used, v.disk.total))}</small></button>`).join('');
+  els.volumes.addEventListener('click', e => { const b = e.target.closest('[data-vol]'); if (b) selectVolume(+b.dataset.vol); });
+}
+
+/* ---------- open / copy ---------- */
+function toast(msg) {
+  els.toast.textContent = msg;
+  els.toast.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => els.toast.classList.remove('show'), 3200);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return; } catch (e) { /* clipboard API unavailable (file:// or old browser): fall back */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+}
+async function openPath(path, file) {
+  if (window.DS_TOKEN) {
+    try {
+      const r = await fetch(`/open?token=${encodeURIComponent(window.DS_TOKEN)}&file=${file === '1' ? 1 : 0}&path=${encodeURIComponent(path)}`);
+      if (r.ok) { toast(`Opened in ${COPY.fileManager}`); return; }
+      const reason = (await r.text()).trim().replace(/\.$/, '');
+      await copyText(path);
+      toast(`${reason || 'Could not open'}. Path copied.`);
+      return;
+    } catch (e) { /* the DiskStrata app is no longer running: fall back to copying */ }
+  }
+  await copyText(path);
+  toast('Path copied. Open this report from the DiskStrata app to enable Open.');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const o = e.target.closest('[data-open]');
+  if (o) { openPath(o.dataset.open, o.dataset.file); return; }
+  const c = e.target.closest('[data-copy]');
+  if (c) copyText(c.dataset.copy).then(() => toast('Path copied'));
+});
+els.tabs.addEventListener('click', e => { const b = e.target.closest('[role="tab"]'); if (b) selectTab(b.dataset.tab); });
+els.tabs.addEventListener('keydown', e => {
+  const ids = view.tabs.map(t => t.id), i = ids.indexOf(view.current);
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: ids.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  selectTab(ids[(next + ids.length) % ids.length], true);
+});
+document.getElementById('print').addEventListener('click', () => window.print());
+/* Print every available section of the current volume, fully expanded. */
+window.addEventListener('beforeprint', () => {
+  view.tabs.forEach(t => ensureBuilt(t.id));
+  els.main.querySelectorAll('details.group').forEach(d => { d.open = true; });
+  els.main.querySelectorAll('[data-showall]').forEach(b => b.click());
+});
+
+/* ---------- start ---------- */
+document.getElementById('foot-version').textContent = 'DiskStrata' + (META.version ? ' ' + META.version : '');
+document.getElementById('foot-generated').textContent = META.generated ? 'Report generated ' + META.generated : '';
+if (window.DS_TOKEN) document.getElementById('back').hidden = false;
+if (!VOLUMES.length) {
+  els.main.innerHTML = emptyState('drive', 'No volumes in this report', 'The scan did not produce any volume data.');
+} else {
+  VOLUMES.forEach(normalise);
+  buildPanels();
+  renderVolumeSwitcher();
+  const saved = store.get('volume');
+  selectVolume(Math.max(0, VOLUMES.findIndex(v => (v.id || v.root) === saved)));
+}
+})();
+</script>
+</body>
+</html>
