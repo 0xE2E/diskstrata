@@ -51,8 +51,12 @@ looks at your whole disk, so you should be able to verify that it stays on your 
 
 You need Python 3.10 or newer.
 
+**Quickest start (from a download or clone):** double-click `DiskStrata.bat` on Windows or
+`DiskStrata.command` on macOS (on Linux run `./DiskStrata.command`). A terminal window opens and the
+browser follows. Close the window to stop it.
+
 ```bash
-# recommended: isolated install
+# or install it properly (recommended)
 pipx install git+https://github.com/0xE2E/diskstrata
 diskstrata
 ```
