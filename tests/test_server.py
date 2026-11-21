@@ -170,6 +170,18 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(second.server_address[1], port)
         second.server_close()
 
+    def test_successful_launch_leaves_the_secret_for_the_new_copy_to_consume(self):
+        # Windows' launcher returns as soon as the process starts, before it has read the file:
+        # deleting it here would make the new copy invent its own secret and lose the session.
+        with mock.patch.object(server.plat, "is_elevated", return_value=False), \
+                mock.patch.object(server.plat, "relaunch_elevated", return_value=None):
+            error = self.app.elevate(self.port)
+        self.assertIsNone(error)
+        leftovers = list(self.app.store.root.glob("elevate_*.secret"))
+        self.assertEqual(len(leftovers), 1)
+        self.assertEqual(leftovers[0].read_text(), self.app.secret)
+        leftovers[0].unlink()
+
     def test_elevate_failure_is_reported_and_server_keeps_running(self):
         seen = {}
 

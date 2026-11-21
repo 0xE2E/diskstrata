@@ -70,6 +70,7 @@ class App:
         data = self.store.root.resolve()        # the elevated copy runs from another directory
         secret_file = data / f"elevate_{secrets.token_hex(4)}.secret"
         flag = data / f"elevate_{secrets.token_hex(4)}.flag"
+        launched = False
         try:
             make_private_dir(data)
             fd = os.open(secret_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -77,10 +78,13 @@ class App:
                 fh.write(self.secret)
             args = ["--port", str(port), "--home", common.home(), "--data-dir", str(data),
                     "--secret-file", str(secret_file), "--no-open"]
-            return plat.relaunch_elevated(args, str(flag))
+            error = plat.relaunch_elevated(args, str(flag))
+            launched = error is None
+            return error
         finally:
-            secret_file.unlink(missing_ok=True)
             flag.unlink(missing_ok=True)
+            if not launched:                    # once launched, the new copy reads and removes it
+                secret_file.unlink(missing_ok=True)
             self._elevating.release()
 
     def reveal(self, path: str, select: bool) -> str | None:

@@ -50,7 +50,7 @@ button,select{font:inherit;color:inherit}
 :focus-visible{outline:none;box-shadow:var(--focus);border-radius:var(--r1)}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
-.wrap{max-width:1040px;margin:0 auto;padding:0 var(--s5)}
+.wrap{width:100%;padding:0 var(--s5)}   /* full page width */
 .dim{color:var(--ink-3)}
 .err{color:var(--danger);font-size:var(--fs-sm)}
 .err:empty{display:none}
@@ -80,7 +80,7 @@ button,select{font:inherit;color:inherit}
 .hero{padding-top:var(--s6);padding-bottom:var(--s4)}
 .hero h1{font-size:var(--fs-2xl)}
 .hero p{color:var(--ink-3);margin-top:var(--s1)}
-main.wrap{display:grid;gap:var(--s4);padding-bottom:var(--s6)}
+main.wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s4);padding-bottom:var(--s6)}  /* minmax(0,..): a long path may never widen the page */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow-1);padding:var(--s4) var(--s5) var(--s5);animation:rise .35s var(--ease) both}
 .panel-head{display:flex;align-items:flex-start;gap:var(--s3);margin-bottom:var(--s4)}
 .panel-head>div{flex:1;min-width:0}
@@ -135,14 +135,14 @@ main.wrap{display:grid;gap:var(--s4);padding-bottom:var(--s6)}
 .dial .arc{stroke:var(--accent);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .9s var(--ease)}
 .dial .pct{font-size:24px;font-weight:650;fill:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dial .lbl{font-size:10px;fill:var(--ink-3)}
-.prog-main{flex:1;min-width:0;display:grid;gap:var(--s3)}
+.prog-main{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s3)}
 .bar{height:8px;background:var(--meter-track);border-radius:999px;overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .9s var(--ease)}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2)}
 .stat{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s2) var(--s3)}
 .stat b{display:block;font-size:var(--fs-lg);font-variant-numeric:tabular-nums;white-space:nowrap}
 .stat span{color:var(--ink-3);font-size:var(--fs-xs)}
-.now{display:flex;align-items:center;gap:var(--s2);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r1);padding:6px 10px;font-size:var(--fs-sm)}
+.now{min-width:0;display:flex;align-items:center;gap:var(--s2);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r1);padding:6px 10px;font-size:var(--fs-sm)}
 .now .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:pulse 1.2s ease-in-out infinite}
 .now .lbl{color:var(--ink-3);flex:none}
 .now .path{font-family:var(--mono);font-size:12px;flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;direction:rtl;text-align:left}
@@ -204,6 +204,8 @@ footer .ro{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
   .callout .btn{width:100%}
   .volumes{grid-template-columns:minmax(0,1fr)}
   .progress{flex-direction:column;align-items:stretch}
+  .now{flex-wrap:wrap}
+  .now .path{flex-basis:100%}   /* the path gets its own row instead of ~20px */
   .dial{align-self:center;width:116px;height:116px}
   .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .actions .btn-lg,.history .btn{width:100%}
@@ -380,7 +382,11 @@ async function post(path, body) {
     return await r.json();
   } catch (e) { return { ok: false, error: 'DiskStrata did not answer.' }; }
 }
-const getJson = async path => (await fetch(path, { cache: 'no-store' })).json();
+const getJson = async path => {
+  const r = await fetch(path, { cache: 'no-store' });
+  if (r.status === 403) throw Object.assign(new Error('session rejected'), { rejected: true });
+  return r.json();
+};
 
 /* ---------- mode & elevation ---------- */
 function renderMode() {
@@ -407,7 +413,16 @@ async function elevate() {
   const deadline = Date.now() + 60000;
   // The server restarts on the same port; until it is back, requests simply fail.
   const wait = setInterval(async () => {
-    try { if ((await getJson('/api/status')).elevated) { clearInterval(wait); location.reload(); return; } } catch (e) { /* not back yet */ }
+    try { if ((await getJson('/api/status')).elevated) { clearInterval(wait); location.reload(); return; } }
+    catch (e) {
+      if (e.rejected) {  // the new copy is running but could not take over this tab's session
+        clearInterval(wait);
+        err.textContent = `DiskStrata restarted as ${ui.state.elevated_label} and opened a new browser tab for it. You can close this one.`;
+        label.textContent = original;
+        return;
+      }
+      /* not back yet */
+    }
     if (Date.now() > deadline) {
       clearInterval(wait);
       err.textContent = `The ${ui.state.elevated_label} copy did not start within a minute. Start DiskStrata as ${ui.state.elevated_label} yourself, then reload this page.`;

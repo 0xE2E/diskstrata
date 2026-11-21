@@ -71,10 +71,11 @@ def main(argv: list[str] | None = None) -> None:
     plat.init()
     if sys.version_info < (3, 11):              # deep folder trees need a big stack before 3.11
         threading.stack_size(64 * 1024 * 1024)
+    store = Store(args.data_dir or plat.data_dir())
+    secret = _read_secret(args.secret_file)
     if args.announce:
         args.announce.touch()                   # tells the launching copy that we are running
-    store = Store(args.data_dir or plat.data_dir())
-    app = App(store, _read_secret(args.secret_file))
+    app = App(store, secret)
     try:
         server = bind(args.port, DEFAULT_PORT, app)
     except SystemExit as exc:                   # an elevated copy has no visible console
@@ -89,7 +90,10 @@ def main(argv: list[str] | None = None) -> None:
     label = f" ({plat.ELEVATED_LABEL})" if plat.is_elevated() else ""
     print(f"{APP_NAME}{label} running. Open: {url}\n(Ctrl+C or the Quit button stops it)",
           flush=True)
-    if not args.no_open:
+    # An elevated copy normally continues the browser tab that asked for it. If that session
+    # could not be handed over, open a fresh tab instead of leaving the user without a link.
+    inherited = bool(args.secret_file) and secret is not None
+    if not args.no_open or (args.secret_file and not inherited):
         threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
     try:
         server.serve_forever()
